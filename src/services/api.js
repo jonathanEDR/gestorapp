@@ -130,3 +130,5 @@ export const sendMessageToChatbot = async (data) => {
     throw error;  // Lanza el error para que se pueda manejar en handleSendMessage
   }
 };
+
+export default api;

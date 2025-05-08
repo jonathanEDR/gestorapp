@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
-import axios from 'axios';
+import api from '../services/api'; // Ajusta la ruta según la ubicación de tu archivo api.js
 
 function CobroList() {
   const { getToken } = useAuth();
@@ -18,12 +18,8 @@ function CobroList() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchCobros(currentPage); // Pasar la página actual
-    fetchColaboradores();
-  }, [getToken, currentPage]); // Añadir currentPage como dependencia
-
-  const fetchCobros = async (page) => {
+  // Envuelve fetchCobros en useCallback
+  const fetchCobros = useCallback(async (page) => {
     try {
       setLoading(true);
       const token = await getToken();
@@ -32,38 +28,32 @@ function CobroList() {
         return;
       }
 
-      // Añadir parámetros de paginación a la URL
       const response = await api.get(`/cobros?page=${page}&limit=15`, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
-      console.log('Respuesta del servidor:', response.data); // Depuración para ver la estructura
-
-      // Verificar la estructura de la respuesta y manejarla adecuadamente
       if (Array.isArray(response.data)) {
-        // Si es un array como en la versión antigua
         setCobros(response.data);
-        setTotalPages(1); // Solo hay una página
+        setTotalPages(1);
       } else if (response.data && Array.isArray(response.data.cobros)) {
-        // Si es el nuevo formato paginado
         setCobros(response.data.cobros);
         setTotalPages(response.data.totalPages || 1);
       } else {
-        // Si no coincide con ningún formato esperado
         setCobros([]);
         console.error('Formato de respuesta inesperado:', response.data);
       }
-      
+
       setLoading(false);
     } catch (error) {
       console.error('Error al obtener los cobros:', error);
       setLoading(false);
     }
-  };
+  }, [getToken]);
 
-  const fetchColaboradores = async () => {
+  // Envuelve fetchColaboradores en useCallback
+  const fetchColaboradores = useCallback(async () => {
     try {
       const token = await getToken();
       if (!token) {
@@ -73,15 +63,22 @@ function CobroList() {
 
       const response = await api.get('/colaboradores', {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       setColaboradores(response.data);
     } catch (error) {
       console.error('Error al obtener los colaboradores:', error);
     }
-  };
+  }, [getToken]);
+
+  // Usa useEffect con las funciones envueltas en useCallback
+  useEffect(() => {
+    fetchCobros(currentPage);
+    fetchColaboradores();
+  }, [fetchCobros, fetchColaboradores, currentPage]);
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
