@@ -40,7 +40,7 @@ function Reportes() {
         }
   
         // Modificación clave: solicitar todos los registros usando limit=0 o un valor alto
-        const response = await axios.get('http://localhost:5000/api/ventas', {
+        const response = await api.get('/ventas', {
           headers: { 'Authorization': `Bearer ${token}` },
           params: { limit: 1000 } // Solicitar muchos registros o todos (depende de la API)
         });
@@ -101,7 +101,7 @@ function Reportes() {
         }
     
         // Solicitar todos los productos
-        const response = await axios.get('http://localhost:5000/api/productos', {
+        const response = await api.get('/productos', {
           headers: { 'Authorization': `Bearer ${token}` },
           params: { limit: 1000 } // Solicitar muchos registros o todos
         });
@@ -132,7 +132,7 @@ function Reportes() {
         }
 
         // Solicitar todos los cobros
-        const response = await axios.get('http://localhost:5000/api/cobros', {
+        const response = await api.get('/cobros', {
           headers: { 'Authorization': `Bearer ${token}` },
           params: { limit: 1000 } // Solicitar muchos registros o todos
         });

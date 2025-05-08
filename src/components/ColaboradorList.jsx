@@ -40,7 +40,7 @@ function ColaboradorList() {
         return;
       }
 
-      const response = await axios.get('http://localhost:5000/api/colaboradores', {
+      const response = await api.get('/colaboradores', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -74,7 +74,7 @@ function ColaboradorList() {
 
       console.log(`Intentando eliminar colaborador con ID: ${colaboradorId}`);
       
-      const response = await axios.delete(`http://localhost:5000/api/colaboradores/${colaboradorId}`, {
+      const response = await api.delete(`/colaboradores/${colaboradorId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -112,7 +112,7 @@ function ColaboradorList() {
       }
   
       if (editing) {
-        await axios.put(`http://localhost:5000/api/colaboradores/${currentColaboradorId}`, newColaborador, {
+        await api.put(`/colaboradores/${currentColaboradorId}`, newColaborador, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
   
@@ -123,7 +123,7 @@ function ColaboradorList() {
         setNewColaborador({ nombre: '', email: '', telefono: '' });
         setShowForm(false);
       } else {
-        await axios.post('http://localhost:5000/api/colaboradores', newColaborador, {
+        await api.post('/colaboradores', newColaborador, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         

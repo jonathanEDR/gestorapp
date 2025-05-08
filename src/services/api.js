@@ -66,7 +66,7 @@ export const createVenta = async (venta) => {
 // Obtener todos los cobros
 export const getCobros = async () => {
   try {
-    const response = await axios.get('http://localhost:5000/api/cobros');
+    const response = await api.get('/cobros');
     return response.data;
   } catch (error) {
     console.error('Error al obtener los cobros:', error);
@@ -109,7 +109,7 @@ export const createCobro = async (cobro) => {
     };
     
     console.log('Datos formateados:', formattedCobro);
-    const response = await axios.post('http://localhost:5000/api/cobros', formattedCobro);
+    const response = await api.post('/cobros', formattedCobro);
     return response;
   } catch (error) {
     console.error('Error detallado:', error.response?.data);

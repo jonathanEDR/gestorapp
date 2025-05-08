@@ -33,7 +33,7 @@ function CobroList() {
       }
 
       // Añadir parámetros de paginación a la URL
-      const response = await axios.get(`http://localhost:5000/api/cobros?page=${page}&limit=15`, {
+      const response = await api.get(`/cobros?page=${page}&limit=15`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -71,7 +71,7 @@ function CobroList() {
         return;
       }
 
-      const response = await axios.get('http://localhost:5000/api/colaboradores', {
+      const response = await api.get('/colaboradores', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -104,7 +104,7 @@ function CobroList() {
         return;
       }
 
-      const response = await axios.get(`http://localhost:5000/api/cobros/debtInfo/${newCobro.colaboradorId}`, {
+      const response = await api.get(`/cobros/debtInfo/${newCobro.colaboradorId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -115,7 +115,7 @@ function CobroList() {
         return;
       }
 
-      const responseCobro = await axios.post('http://localhost:5000/api/cobros', {
+      const responseCobro = await api.post('/cobros', {
         ...newCobro,
         montoPagado: Number(newCobro.montoPagado)
       }, {
@@ -153,7 +153,7 @@ function CobroList() {
         return;
       }
 
-      await axios.delete(`http://localhost:5000/api/cobros/${id}`, {
+      await api.delete(`/cobros/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 

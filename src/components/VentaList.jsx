@@ -29,8 +29,8 @@ function VentaList() {
   const loadVentas = async (token) => {
     try {
       const config = { headers: { 'Authorization': `Bearer ${token}` } };
-      const ventasRes = await axios.get(
-        `http://localhost:5000/api/ventas?page=${currentPage}&limit=15`, 
+      const ventasRes = await api.get(
+        `/ventas?page=${currentPage}&limit=15`, 
         config
       );
       
@@ -71,8 +71,8 @@ function VentaList() {
         
         // Cargar colaboradores y productos
         const [colaboradoresRes, productosRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/ventas/colaboradores', config),
-          axios.get('http://localhost:5000/api/ventas/productos', config)
+          api.get('/ventas/colaboradores', config),
+          api.get('/ventas/productos', config)
         ]);
         
         setColaboradores(colaboradoresRes.data);
@@ -178,15 +178,15 @@ function VentaList() {
 
       // Ejecutar la operación de agregar o editar
       if (ventaData.editing) {
-        await axios.put(
-          `http://localhost:5000/api/ventas/${ventaData.currentVentaId}`, 
+        await api.put(
+          `/ventas/${ventaData.currentVentaId}`, 
           ventaData, 
           { headers: { 'Authorization': `Bearer ${token}` } }
         );
         alert('Venta actualizada exitosamente');
       } else {
-        await axios.post(
-          'http://localhost:5000/api/ventas', 
+        await api.post(
+          '/ventas', 
           ventaData, 
           { headers: { 'Authorization': `Bearer ${token}` } }
         );
@@ -215,8 +215,8 @@ function VentaList() {
         return;
       }
 
-      await axios.delete(
-        `http://localhost:5000/api/ventas/${ventaData.currentVentaId}`, 
+      await api.delete(
+        `/ventas/${ventaData.currentVentaId}`, 
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       
