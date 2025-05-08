@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState, useCallback } from 'react';
+import api from '../services/api'; // Ajusta la ruta si es necesario
 import { useAuth } from '@clerk/clerk-react';
 
 function VentaList() {
@@ -25,56 +25,57 @@ function VentaList() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Función para cargar los datos de ventas
-  const loadVentas = async (token) => {
+  // Envuelve loadVentas en useCallback
+  const loadVentas = useCallback(async (token) => {
     try {
       const config = { headers: { 'Authorization': `Bearer ${token}` } };
       const ventasRes = await api.get(
-        `/ventas?page=${currentPage}&limit=15`, 
+        `/ventas?page=${currentPage}&limit=15`,
         config
       );
-      
+
       console.log('Datos recibidos del servidor:', ventasRes.data);
-      
+
       // Verificar si la propiedad 'ventas' existe en la respuesta
       if (ventasRes.data && Array.isArray(ventasRes.data.ventas)) {
-        setVentas(ventasRes.data.ventas);  // Establecer las ventas en el estado
-        setTotalPages(ventasRes.data.totalPages || 1);  // Establecer el total de páginas
+        setVentas(ventasRes.data.ventas); // Establecer las ventas en el estado
+        setTotalPages(ventasRes.data.totalPages || 1); // Establecer el total de páginas
       } else {
         console.warn('La respuesta no contiene una propiedad "ventas" válida:', ventasRes.data);
-        setVentas([]);  // Si no es un array, asignar un array vacío
+        setVentas([]); // Si no es un array, asignar un array vacío
       }
     } catch (err) {
       console.error('Error al cargar ventas:', err);
       setError('Error al cargar los datos de ventas');
     }
-  };
+  }, [currentPage]); // currentPage como dependencia
+
   // Obtener ventas, colaboradores y productos en un solo useEffect
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         const token = await getToken();
         if (!token) {
           throw new Error('No estás autorizado');
         }
-        
+
         // Configurar headers para todas las solicitudes
         const config = {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${token}` },
         };
-        
+
         // Cargar ventas
         await loadVentas(token);
-        
+
         // Cargar colaboradores y productos
         const [colaboradoresRes, productosRes] = await Promise.all([
           api.get('/ventas/colaboradores', config),
-          api.get('/ventas/productos', config)
+          api.get('/ventas/productos', config),
         ]);
-        
+
         setColaboradores(colaboradoresRes.data);
         setProductos(productosRes.data);
         setLoading(false);
@@ -84,9 +85,9 @@ function VentaList() {
         setLoading(false);
       }
     };
-    
+
     fetchData();
-  }, [getToken, currentPage]);
+  }, [getToken, currentPage, loadVentas]);
 
   // Función para manejar el cambio de cantidad y recalcular monto total
   const handleCantidadChange = (e) => {

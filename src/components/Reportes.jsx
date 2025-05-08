@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
-import axios from 'axios';
+import api from '../services/api'; // Ajusta la ruta si es necesario
 import SalesOverTimeChart from './SalesOverTimeChart';
 
 function Reportes() {

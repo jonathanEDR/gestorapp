@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState,useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
+import api from '../services/api';
 
 function ProductoList() {
   const { getToken } = useAuth();
@@ -17,46 +17,50 @@ function ProductoList() {
   const [isLoading, setIsLoading] = useState(true);
   const [productosTerminados, setProductosTerminados] = useState([]);
 
-  useEffect(() => {
-    const fetchProductos = async () => {
-      try {
-        const token = await getToken();
-        console.log('Token recibido:', token);  // Verifica el token
-        if (!token) {
-          setError('No estás autorizado');
-          setIsLoading(false);
-          return;
-        }
-
-        const response = await axios.get('http://localhost:5000/api/productos', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-                // Process products to move those with cantidadRestante == 0 to "productosTerminados"
-        const productosActivos = [];
-        const productosFinalizados = [];
-
-        response.data.forEach((producto) => {
-          if (producto.cantidadRestante === 0) {
-            productosFinalizados.push({
-              ...producto,
-              fechaAgotamiento: new Date().toLocaleString(),
-            });
-          } else {
-            productosActivos.push(producto);
-          }
-        });
-        setProductos(productosActivos);
-        setProductosTerminados(productosFinalizados);
-      } catch (error) {
-        console.error('Error al obtener productos:', error);
-        setError('Error al cargar productos');
-      } finally {
+  // Envuelve fetchProductos en useCallback
+  const fetchProductos = useCallback(async () => {
+    try {
+      const token = await getToken();
+      console.log('Token recibido:', token); // Verifica el token
+      if (!token) {
+        setError('No estás autorizado');
         setIsLoading(false);
+        return;
       }
-    };
 
-    fetchProductos();
+      const response = await api.get('/productos', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      // Procesar productos para mover los que tienen cantidadRestante == 0 a "productosTerminados"
+      const productosActivos = [];
+      const productosFinalizados = [];
+
+      response.data.forEach((producto) => {
+        if (producto.cantidadRestante === 0) {
+          productosFinalizados.push({
+            ...producto,
+            fechaAgotamiento: new Date().toLocaleString(),
+          });
+        } else {
+          productosActivos.push(producto);
+        }
+      });
+
+      setProductos(productosActivos);
+      setProductosTerminados(productosFinalizados);
+    } catch (error) {
+      console.error('Error al obtener productos:', error);
+      setError('Error al cargar productos');
+    } finally {
+      setIsLoading(false);
+    }
   }, [getToken]);
+
+  // useEffect para llamar a fetchProductos
+  useEffect(() => {
+    fetchProductos();
+  }, [fetchProductos]);
 
   const handleDeleteProducto = async () => {
     try {
@@ -71,7 +75,7 @@ function ProductoList() {
         return;
       }
 
-      await axios.delete(`http://localhost:5000/api/productos/${productoData.currentProductoId}`, {
+      await api.delete(`/productos/${productoData.currentProductoId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -100,7 +104,7 @@ function ProductoList() {
   
       if (productoData.editing) {
         // Actualizar producto existente
-        const response = await axios.put(`http://localhost:5000/api/productos/${productoData.currentProductoId}`, {
+        const response = await api.put(`/productos/${productoData.currentProductoId}`, {
           nombre: productoData.nombre,
           precio: productoData.precio,
           cantidad: productoData.cantidad
@@ -114,7 +118,7 @@ function ProductoList() {
         resetForm();
       } else {
         // Agregar nuevo producto
-        const response = await axios.post('http://localhost:5000/api/productos', {
+        const response = await api.post('/productos', {
           nombre: productoData.nombre,
           precio: productoData.precio,
           cantidad: productoData.cantidad
@@ -169,6 +173,16 @@ function ProductoList() {
     <div className="list p-6">
       <h2 className="text-2xl font-semibold text-gray-800 mb-4">Inventario de Productos</h2>
 
+            {/* Mostrar errores */}
+            {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {/* Mostrar indicador de carga */}
+      {isLoading && <p>Cargando productos...</p>}
+      
       {/* Botón para mostrar o cancelar el formulario */}
       <button
         onClick={toggleFormVisibility}

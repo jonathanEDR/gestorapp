@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { useAuth, useUser } from '@clerk/clerk-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import api from '../services/api'; // Ajusta la ruta si es necesario
+import { useAuth } from '@clerk/clerk-react';
 
 function ColaboradorList() {
   const [colaboradores, setColaboradores] = useState([]);
@@ -16,34 +16,21 @@ function ColaboradorList() {
   const [error, setError] = useState(null);
 
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const { user } = useUser();
 
-  const fetchColaboradores = async () => {
-    if (!isLoaded) {
-      return;  // Esperar a que Clerk cargue
+  // Función para obtener colaboradores
+  const fetchColaboradores = useCallback(async () => {
+    if (!isLoaded || !isSignedIn) {
+      return; // Esperar a que Clerk cargue y el usuario esté autenticado
     }
 
     setIsLoading(true);
     setError(null);
 
-    if (!isSignedIn) {
-      console.error('No autenticado, redirigiendo al login');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const token = await getToken();
-      if (!token) {
-        console.error('Token no encontrado');
-        setIsLoading(false);
-        return;
-      }
-
       const response = await api.get('/colaboradores', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       setColaboradores(response.data);
     } catch (error) {
       console.error('Error al obtener colaboradores:', error);
@@ -51,11 +38,11 @@ function ColaboradorList() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isLoaded, isSignedIn, getToken]);
 
   useEffect(() => {
     fetchColaboradores();
-  }, [isLoaded, isSignedIn]);
+  }, [fetchColaboradores]);
 
   const handleDeleteColaborador = async (id) => {
     try {
