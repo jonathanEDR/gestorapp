@@ -10,7 +10,6 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
-import zoomPlugin from 'chartjs-plugin-zoom';
 
 // Registrar los componentes de Chart.js
 ChartJS.register(
@@ -21,391 +20,379 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  zoomPlugin
 );
 
-const SalesOverTimeChart = ({ ventas, selectedRange }) => {
+const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
 
-    const parseDate = (fecha) => {
-      let fechaValida;
-      
-      if (typeof fecha === 'string') {
-        fechaValida = new Date(fecha);
-        // Intentar otro formato si el ISO no es válido
-        if (isNaN(fechaValida.getTime()) && fecha.includes('/')) {
-          const parts = fecha.split('/');
-          if (parts.length === 3) {
-            fechaValida = new Date(parts[2], parts[1] - 1, parts[0]); // DD/MM/YYYY
-          }
+  const parseDate = (fecha) => {
+    let fechaValida;
+
+    if (typeof fecha === 'string') {
+      fechaValida = new Date(fecha);
+      if (isNaN(fechaValida.getTime()) && fecha.includes('/')) {
+        const parts = fecha.split('/');
+        if (parts.length === 3) {
+          fechaValida = new Date(parts[2], parts[1] - 1, parts[0]); // DD/MM/YYYY
         }
-      } else if (fecha instanceof Date) {
-        fechaValida = fecha;
-      } else {
-        fechaValida = new Date(); // Usar fecha actual como fallback
       }
-      
-      return fechaValida;
+    } else if (fecha instanceof Date) {
+      fechaValida = fecha;
+    } else {
+      fechaValida = new Date(); // fallback
     }
-  
-    // Filtrar las ventas según el rango seleccionado
-    const filteredData = useMemo(() => {
-      if (!ventas || ventas.length === 0) return [];
-  
-      const ventasConFechasValidas = ventas.map(venta => {
-        let fechaValida = parseDate(venta.fechadeVenta);
-        return {
-          ...venta,
-          fechaVenta: fechaValida,
-          fechaOriginal: venta.fechadeVenta
-        };
-      });
-  
-      const now = new Date();
-      let resultado = [];
-  
-      switch (selectedRange) {
-        case 'day': {
-          // Filtrar solo las ventas de hoy (00:00 - 23:59)
-          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Inicio del día de hoy
-          const tomorrow = new Date(today);
-          tomorrow.setDate(today.getDate() + 1); // Fin del día de hoy (justo antes de la medianoche)
-      
-          // Filtramos solo las ventas que ocurrieron hoy
-          resultado = ventasConFechasValidas.filter(venta =>
-            venta.fechaVenta >= today && venta.fechaVenta < tomorrow
-          );
-          break;
-        }
-        case 'week': {
-          const currentDate = new Date(now);
-          const dayOfWeek = currentDate.getDay();
-          const startOfWeek = new Date(currentDate);
-          startOfWeek.setDate(currentDate.getDate() - dayOfWeek);
-          startOfWeek.setHours(0, 0, 0, 0);
-          
-          const endOfWeek = new Date(startOfWeek);
-          endOfWeek.setDate(startOfWeek.getDate() + 7);
-          endOfWeek.setHours(0, 0, 0, 0);
-          
-          resultado = ventasConFechasValidas.filter(venta =>
-            venta.fechaVenta >= startOfWeek && venta.fechaVenta < endOfWeek
-          );
-          break;
-        }
-        case 'month': {
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-          resultado = ventasConFechasValidas.filter(venta =>
-            venta.fechaVenta >= startOfMonth && venta.fechaVenta < endOfMonth
-          );
-          break;
-        }
-        case 'year': {
-          const startOfYear = new Date(now.getFullYear(), 0, 1);
-          const endOfYear = new Date(now.getFullYear() + 1, 0, 1);
-          resultado = ventasConFechasValidas.filter(venta =>
-            venta.fechaVenta >= startOfYear && venta.fechaVenta < endOfYear
-          );
-          break;
-        }
-        case 'historical':
-        default:
-          resultado = ventasConFechasValidas;
-          break;
-      }
-  
-      console.log(`Total de registros después de filtrar (${selectedRange}): ${resultado.length}`);
-  
-      return resultado;
-    }, [ventas, selectedRange]);
-  
-    // Formato para mostrar fechas en diferentes rangos
-    const formatDate = (date, range) => {
-      const options = { weekday: 'short', month: 'short', day: 'numeric' };
-      
-      switch (range) {
-        case 'day':
-          return `${String(date.getHours()).padStart(2, '0')}:00`;
-        case 'week':
-          return date.toLocaleDateString('es-ES', options);
-        case 'month':
-          return `${date.getDate()}/${date.getMonth() + 1}`;
-        case 'year':
-          return `${new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(date)}`;
-        default:
-          return date.toLocaleDateString('es-ES');
-      }
-    };
 
-    // Determinar el formato de agrupación según el rango seleccionado
-    const getGroupingFormat = (date, range) => {
-      switch (range) {
-        case 'day':
-          // Agrupar por hora (YYYY-MM-DD HH:00:00)
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:00:00`;
-        case 'week':
-          // Agrupar por día (YYYY-MM-DD)
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        case 'month':
-          // Agrupar por día del mes (YYYY-MM-DD)
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        case 'year':
-          // Agrupar por mes (YYYY-MM)
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        default:
-          // Histórico: agrupar por mes (YYYY-MM)
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      }
-    };
+    return fechaValida;
+  }
 
-    // Generar todos los intervalos para el rango seleccionado
-    const generateTimeIntervals = (range) => {
-      const now = new Date();
-      const intervals = [];
-      
-      switch (range) {
-        case 'day': {
-          // Generar las 24 horas del día
-          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          for (let i = 0; i < 24; i++) {
-            const date = new Date(today);
-            date.setHours(i, 0, 0, 0);
-            intervals.push({
-              key: getGroupingFormat(date, range),
-              label: formatDate(date, range)
-            });
-          }
-          break;
-        }
-        case 'week': {
-          // Generar los 7 días de la semana
-          const currentDate = new Date(now);
-          const dayOfWeek = currentDate.getDay();
-          const startOfWeek = new Date(currentDate);
-          startOfWeek.setDate(currentDate.getDate() - dayOfWeek);
-          startOfWeek.setHours(0, 0, 0, 0);
-          
-          for (let i = 0; i < 7; i++) {
-            const date = new Date(startOfWeek);
-            date.setDate(startOfWeek.getDate() + i);
-            intervals.push({
-              key: getGroupingFormat(date, range),
-              label: formatDate(date, range)
-            });
-          }
-          break;
-        }
-        case 'month': {
-          // Generar todos los días del mes
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-          const daysInMonth = endOfMonth.getDate();
-          
-          for (let i = 1; i <= daysInMonth; i++) {
-            const date = new Date(startOfMonth);
-            date.setDate(i);
-            intervals.push({
-              key: getGroupingFormat(date, range),
-              label: formatDate(date, range)
-            });
-          }
-          break;
-        }
-        case 'year': {
-          // Generar los 12 meses del año
-          for (let i = 0; i < 12; i++) {
-            const date = new Date(now.getFullYear(), i, 1);
-            intervals.push({
-              key: getGroupingFormat(date, range),
-              label: formatDate(date, range)
-            });
-          }
-          break;
-        }
-        case 'historical':
-        default: {
-          // Para histórico, podríamos mostrar los últimos 12 meses por ejemplo
-          for (let i = 11; i >= 0; i--) {
-            const date = new Date(now);
-            date.setMonth(now.getMonth() - i);
-            date.setDate(1);
-            intervals.push({
-              key: getGroupingFormat(date, range),
-              label: formatDate(date, range)
-            });
-          }
-          break;
-        }
-      }
-      
-      return intervals;
-    };
-  
-    // Agrupar las ventas según el rango seleccionado
-    const groupedData = useMemo(() => {
-      if (filteredData.length === 0) {
-        return { labels: [], values: [] };
-      }
-  
-      const groupedSales = {};
-  
-      // Agrupar las ventas según el rango seleccionado
-      filteredData.forEach((venta) => {
-        const montoTotal = parseFloat(venta.montoTotal) || 0;
-        const date = new Date(venta.fechaVenta);
-        const key = getGroupingFormat(date, selectedRange);
-        
-        if (!groupedSales[key]) {
-          groupedSales[key] = 0;
-        }
-        groupedSales[key] += montoTotal;
-      });
-  
-      // Generar todos los intervalos posibles según el rango
-      const timeIntervals = generateTimeIntervals(selectedRange);
-  
-      // Llenar con valor 0 los intervalos sin ventas
-      const labels = timeIntervals.map(interval => interval.label);
-      const values = timeIntervals.map(interval => groupedSales[interval.key] || 0);
-  
+  // Filtrar las ventas según el rango seleccionado
+  const filteredData = useMemo(() => {
+    if (!ventas || ventas.length === 0) return [];
+
+    const ventasConFechasValidas = ventas.map(venta => {
+      let fechaValida = parseDate(venta.fechadeVenta);
       return {
-        labels,
-        values
+        ...venta,
+        fechaVenta: fechaValida,
+        fechaOriginal: venta.fechadeVenta
       };
-    }, [filteredData, selectedRange]);
-  
-    // Configurar los datos del gráfico
-    const chartData = {
-      labels: groupedData.labels,
-      datasets: [{
-        label: getDatasetLabel(selectedRange),
-        data: groupedData.values,
-        borderColor: 'rgba(75, 192, 192, 1)',
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        fill: true,
-        pointRadius: 5,
-        pointBackgroundColor: 'rgba(75, 192, 192, 1)',
-        tension: 0.1,
-      }]
-    };
-  
-    // Opciones del gráfico
-    const chartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'top',
-        },
-        title: {
-          display: true,
-          text: `Evolución de Ventas - ${getTimeRangeTitle(selectedRange)}`,
-          font: { size: 16 },
-          padding: { top: 10, bottom: 20 }
-        },
-        tooltip: {
-          callbacks: {
-            label: (context) => `S/ ${context.raw.toFixed(2)}`,
-          },
-        },
-        zoom: {
-          pan: { 
-            enabled: true, 
-            mode: 'xy',
-            threshold: 5
-          },
-          zoom: { 
-            wheel: { enabled: true },
-            pinch: { enabled: true },
-            mode: 'xy',
-          },
-          limits: {
-            y: { min: 'original', max: 'original' }
-          }
-        }
-      },
-      scales: {
-        x: {
-          title: {
-            display: true,
-            text: getXAxisLabel(selectedRange),
-            font: { weight: 'bold' }
-          },
-          ticks: {
-            autoSkip: true,
-            maxRotation: 45,
-            minRotation: 30
-          },
-          grid: {
-            display: true,
-            drawBorder: true
-          }
-        },
-        y: {
-          title: {
-            display: true,
-            text: 'Monto Total (S/)',
-            font: { weight: 'bold' }
-          },
-          beginAtZero: true,
-          grid: {
-            display: true,
-            drawBorder: true
-          }
-        }
-      },
-      animation: {
-        duration: 1000,
-        easing: 'easeOutQuart'
+    });
+
+    const now = new Date();
+    let resultado = [];
+
+    switch (selectedRange) {
+      case 'day': {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+
+        resultado = ventasConFechasValidas.filter(venta =>
+          venta.fechaVenta >= today && venta.fechaVenta < tomorrow
+        );
+        break;
       }
-    };
-  
-    function getTimeRangeTitle(range) {
-      switch(range) {
-        case 'day': return 'Hoy';
-        case 'week': return 'Esta Semana';
-        case 'month': return 'Este Mes';
-        case 'year': return 'Este Año';
-        case 'historical': return 'Histórico';
-        default: return 'Todas las Ventas';
+      case 'week': {
+        const currentDate = new Date(now);
+        const dayOfWeek = currentDate.getDay();
+        const startOfWeek = new Date(currentDate);
+        startOfWeek.setDate(currentDate.getDate() - dayOfWeek);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 7);
+        endOfWeek.setHours(0, 0, 0, 0);
+
+        resultado = ventasConFechasValidas.filter(venta =>
+          venta.fechaVenta >= startOfWeek && venta.fechaVenta < endOfWeek
+        );
+        break;
+      }
+      case 'month': {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        resultado = ventasConFechasValidas.filter(venta =>
+          venta.fechaVenta >= startOfMonth && venta.fechaVenta < endOfMonth
+        );
+        break;
+      }
+      case 'year': {
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const endOfYear = new Date(now.getFullYear() + 1, 0, 1);
+        resultado = ventasConFechasValidas.filter(venta =>
+          venta.fechaVenta >= startOfYear && venta.fechaVenta < endOfYear
+        );
+        break;
+      }
+      case 'historical':
+      default:
+        resultado = ventasConFechasValidas;
+        break;
+    }
+
+    return resultado;
+  }, [ventas, selectedRange]);
+
+  // Función para formatear etiquetas en el eje X
+  const formatDate = (date, range) => {
+    const options = { weekday: 'short', month: 'short', day: 'numeric' };
+
+    switch (range) {
+      case 'day':
+        return `${String(date.getHours()).padStart(2, '0')}:00`;
+      case 'week':
+        return date.toLocaleDateString('es-ES', options);
+      case 'month':
+        return `${date.getDate()}/${date.getMonth() + 1}`;
+      case 'year':
+        return new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(date);
+      default:
+        return date.toLocaleDateString('es-ES');
+    }
+  };
+
+  // Función corregida para agrupar las fechas con normalización (minutos y segundos en cero)
+  const getGroupingFormat = (date, range) => {
+    switch (range) {
+      case 'day': {
+        const normalizedDate = new Date(date);
+        normalizedDate.setMinutes(0, 0, 0);
+        return `${normalizedDate.getFullYear()}-${String(normalizedDate.getMonth() + 1).padStart(2, '0')}-${String(normalizedDate.getDate()).padStart(2, '0')} ${String(normalizedDate.getHours()).padStart(2, '0')}:00:00`;
+      }
+      case 'week':
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      case 'month':
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      case 'year':
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      default:
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+  };
+
+  // Generar intervalos de tiempo para el eje X
+  const generateTimeIntervals = (range) => {
+    const now = new Date();
+    const intervals = [];
+
+    switch (range) {
+      case 'day': {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        for (let i = 0; i < 24; i++) {
+          const date = new Date(today);
+          date.setHours(i, 0, 0, 0);
+          intervals.push({
+            key: getGroupingFormat(date, range),
+            label: formatDate(date, range)
+          });
+        }
+        break;
+      }
+      case 'week': {
+        const currentDate = new Date(now);
+        const dayOfWeek = currentDate.getDay();
+        const startOfWeek = new Date(currentDate);
+        startOfWeek.setDate(currentDate.getDate() - dayOfWeek);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(startOfWeek);
+          date.setDate(startOfWeek.getDate() + i);
+          intervals.push({
+            key: getGroupingFormat(date, range),
+            label: formatDate(date, range)
+          });
+        }
+        break;
+      }
+      case 'month': {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const daysInMonth = endOfMonth.getDate();
+
+        for (let i = 1; i <= daysInMonth; i++) {
+          const date = new Date(startOfMonth);
+          date.setDate(i);
+          intervals.push({
+            key: getGroupingFormat(date, range),
+            label: formatDate(date, range)
+          });
+        }
+        break;
+      }
+      case 'year': {
+        for (let i = 0; i < 12; i++) {
+          const date = new Date(now.getFullYear(), i, 1);
+          intervals.push({
+            key: getGroupingFormat(date, range),
+            label: formatDate(date, range)
+          });
+        }
+        break;
+      }
+      case 'historical':
+      default: {
+        for (let i = 11; i >= 0; i--) {
+          const date = new Date(now);
+          date.setMonth(now.getMonth() - i);
+          date.setDate(1);
+          intervals.push({
+            key: getGroupingFormat(date, range),
+            label: formatDate(date, range)
+          });
+        }
+        break;
       }
     }
 
-    function getXAxisLabel(range) {
-      switch(range) {
-        case 'day': return 'Hora del Día';
-        case 'week': return 'Día de la Semana';
-        case 'month': return 'Día del Mes';
-        case 'year': return 'Mes';
-        case 'historical': return 'Período';
-        default: return 'Tiempo';
-      }
-    }
+    return intervals;
+  };
 
-    function getDatasetLabel(range) {
-      switch(range) {
-        case 'day': return 'Ventas por Hora (S/)';
-        case 'week': return 'Ventas por Día (S/)';
-        case 'month': return 'Ventas por Día (S/)';
-        case 'year': return 'Ventas por Mes (S/)';
-        case 'historical': return 'Ventas por Período (S/)';
-        default: return 'Ventas (S/)';
-      }
-    }
-  
+  // Agrupar datos en ventas, devoluciones y calcular ventas netas
+  const groupedData = useMemo(() => {
     if (filteredData.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
-          <p className="text-lg text-gray-500">No hay datos de ventas para mostrar en el período seleccionado</p>
-        </div>
-      );
+      return {
+        labels: [],
+        ventasValues: [],
+        devolucionesValues: [],
+        ventasNetasValues: []
+      };
     }
-  
+
+    const timeIntervals = generateTimeIntervals(selectedRange);
+    const groupedSales = {};
+    const groupedDevoluciones = {};
+    const groupedVentasNetas = {};
+
+    // Inicializar acumuladores a cero
+    timeIntervals.forEach(interval => {
+      groupedSales[interval.key] = 0;
+      groupedDevoluciones[interval.key] = 0;
+      groupedVentasNetas[interval.key] = 0;
+    });
+
+    // Agrupar ventas
+    filteredData.forEach((venta) => {
+      const montoTotal = parseFloat(venta.montoTotal) || 0;
+      const date = new Date(venta.fechaVenta);
+      const key = getGroupingFormat(date, selectedRange);
+
+      if (key in groupedSales) {
+        groupedSales[key] += montoTotal;
+      }
+    });
+
+    // Agrupar devoluciones
+    devoluciones.forEach((devolucion) => {
+      const montoDevolucion = parseFloat(devolucion.montoDevolucion) || 0;
+      const date = new Date(devolucion.createdAt);
+      const key = getGroupingFormat(date, selectedRange);
+
+      if (key in groupedDevoluciones) {
+        groupedDevoluciones[key] += montoDevolucion;
+      }
+    });
+
+    // Calcular ventas netas
+    timeIntervals.forEach(interval => {
+      groupedVentasNetas[interval.key] = groupedSales[interval.key] - groupedDevoluciones[interval.key];
+    });
+
+    return {
+      labels: timeIntervals.map(interval => interval.label),
+      ventasValues: timeIntervals.map(interval => groupedSales[interval.key]),
+      devolucionesValues: timeIntervals.map(interval => groupedDevoluciones[interval.key]),
+      ventasNetasValues: timeIntervals.map(interval => groupedVentasNetas[interval.key])
+    };
+  }, [filteredData, devoluciones, selectedRange]);
+
+  // Datos del gráfico
+  const chartData = {
+    labels: groupedData.labels,
+    datasets: [
+      {
+        label: 'Ventas Brutas (S/)',
+        data: groupedData.ventasValues,
+        borderColor: 'rgba(75, 192, 192, 1)',
+        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+        fill: true,
+        pointRadius: 4,
+        tension: 0.1,
+        borderWidth: 2
+      },
+      {
+        label: 'Devoluciones (S/)',
+        data: groupedData.devolucionesValues,
+        borderColor: 'rgba(255, 99, 132, 1)',
+        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+        fill: true,
+        pointRadius: 3,
+        tension: 0.1,
+        borderWidth: 2
+      },
+      {
+        label: 'Ventas Netas (S/)',
+        data: groupedData.ventasNetasValues,
+        borderColor: 'rgba(54, 162, 235, 1)',
+        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+        fill: true,
+        pointRadius: 3,
+        tension: 0.1,
+        borderWidth: 2
+      }
+    ]
+  };
+
+  // Opciones del gráfico
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { position: 'top', labels: { usePointStyle: true, padding: 15 } },
+      title: {
+        display: true,
+        text: `Evolución de Ventas - ${getTimeRangeTitle(selectedRange)}`,
+        font: { size: 16 },
+        padding: { top: 10, bottom: 20 }
+      },
+      tooltip: {
+        callbacks: {
+          label: context => `${context.dataset.label}: S/ ${context.raw.toFixed(2)}`
+        }
+      }
+    },
+    scales: {
+      x: {
+        title: { display: true, text: getXAxisLabel(selectedRange), font: { weight: 'bold' } },
+        ticks: { autoSkip: true, maxRotation: 45, minRotation: 30 },
+        grid: { display: true, drawBorder: true }
+      },
+      y: {
+        title: { display: true, text: 'Monto (S/)', font: { weight: 'bold' } },
+        beginAtZero: true,
+        grid: { display: true, drawBorder: true },
+        ticks: { callback: value => `S/ ${value}` }
+      }
+    }
+  };
+
+  // Funciones auxiliares para títulos y etiquetas
+  function getTimeRangeTitle(range) {
+    switch(range) {
+      case 'day': return 'Hoy';
+      case 'week': return 'Esta Semana';
+      case 'month': return 'Este Mes';
+      case 'year': return 'Este Año';
+      case 'historical': return 'Histórico';
+      default: return 'Todas las Ventas';
+    }
+  }
+
+  function getXAxisLabel(range) {
+    switch(range) {
+      case 'day': return 'Hora del Día';
+      case 'week': return 'Día de la Semana';
+      case 'month': return 'Día del Mes';
+      case 'year': return 'Mes';
+      case 'historical': return 'Período';
+      default: return 'Tiempo';
+    }
+  }
+
+  // Renderizado
+  if (filteredData.length === 0) {
     return (
-      <div className="bg-white p-4 rounded-lg shadow-md" style={{ height: '400px' }}>
-        <Line data={chartData} options={chartOptions} />
+      <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
+        <p className="text-lg text-gray-500">No hay datos de ventas para mostrar en el período seleccionado</p>
       </div>
     );
-  };
-  
-  export default SalesOverTimeChart;
+  }
+
+  return (
+    <div className="bg-white p-4 rounded-lg shadow-md" style={{ height: '400px' }}>
+      <Line data={chartData} options={chartOptions} />
+    </div>
+  );
+};
+
+export default SalesOverTimeChart;

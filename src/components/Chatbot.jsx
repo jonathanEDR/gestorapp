@@ -11,16 +11,13 @@ const Chatbot = () => {
     responses: [],
   });
   
-  const [isListening, setIsListening] = useState(false);
-  const [shouldRead, setShouldRead] = useState(false); // Controla la lectura en voz alta
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Agregar este estado
   const [error, setError] = useState(null);
-  
+  const [isListening, setIsListening] = useState(false);
+  const [shouldRead, setShouldRead] = useState(false); // Controla la lectura en voz alta  
   const recognitionRef = useRef(null);
   const retryTimeoutRef = useRef(null);
-  const messageInputRef = useRef(null);
-  
-  const { getToken, isSignedIn } = useAuth(); // Get both token and auth status
+  const { getToken } = useAuth(); // Get both token and auth status
 
   // Verificar si se tiene acceso al micrófono
   const checkMicrophoneAccess = async () => {
@@ -39,21 +36,20 @@ const Chatbot = () => {
   
   // Función para hablar texto (Text-to-Speech)
   const speakText = (text) => {
-    if (!SpeechSynthesis) return;
+    if (!SpeechSynthesis || !shouldRead) return;
     
-    // Cancel any ongoing speech
     SpeechSynthesis.cancel();
-    
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-ES'; // Spanish language
-    utterance.rate = 1.0;     // Normal speed
+    utterance.lang = 'es-ES';
+    utterance.rate = 1.0;
     SpeechSynthesis.speak(utterance);
   };
 
-  // Handle input change
   const handleInputChange = (e) => {
     setChatData(prev => ({ ...prev, message: e.target.value }));
+    setError(null); // Limpiar errores al escribir
   };
+
 
   // Function for speech recognition setup
   const setupSpeechRecognition = () => {
@@ -119,38 +115,36 @@ const Chatbot = () => {
     setIsListening(!isListening);
   };
 
-  // Toggle text-to-speech
-  const toggleTextToSpeech = () => {
-    setShouldRead(!shouldRead);
-  };
+
 
   const handleSendMessage = async () => {
-    if (!chatData.message.trim()) return; // No enviar si está vacío
+    if (!chatData.message.trim()) return;
     setIsLoading(true);
+    setError(null);
   
     try {
-      // Obtén el token de autenticación
       const token = await getToken();
-  
-      // Llamar a la función sendMessageToChatbot, pasando el mensaje y el token
       const reply = await sendMessageToChatbot({
         message: chatData.message.trim(),
-        token: token, // Pasa el token de autenticación si lo necesitas en la función
+        token: token,
       });
   
-      // Actualizar el estado con el mensaje del usuario y la respuesta del chatbot
       setChatData(prev => ({
         ...prev,
         responses: [...prev.responses, { message: chatData.message.trim(), reply }],
-        message: '',  // Limpiar el campo de texto
+        message: '',
       }));
+
+      if (shouldRead) {
+        speakText(reply);
+      }
     } catch (error) {
       console.error('Error al interactuar con el chatbot:', error);
+      setError('Error al enviar el mensaje. Por favor, intenta de nuevo.');
     } finally {
       setIsLoading(false);
     }
   };
-  
 
   // Handle keyboard submission
   const handleKeyDown = (e) => {
@@ -182,8 +176,18 @@ const Chatbot = () => {
           Inteligencia artificial de chatbot
         </h2>
 
-        {/* Chatbox */}
+        {/* Chatbox con indicador de carga y errores */}
         <div className="chatbox flex-1 overflow-y-auto mb-4 p-2 border border-gray-200 rounded-lg">
+          {isLoading && (
+            <div className="loading-indicator text-center py-2">
+              <span className="text-gray-500">Procesando mensaje...</span>
+            </div>
+          )}
+          {error && (
+            <div className="error-message text-red-500 text-sm mb-2 p-2 bg-red-50 rounded">
+              {error}
+            </div>
+          )}
           {chatData.responses.length === 0 ? (
             <p className="text-gray-500 text-center">No hay mensajes aún.</p>
           ) : (
@@ -207,29 +211,32 @@ const Chatbot = () => {
               type="text"
               placeholder="Escribe tu mensaje..."
               value={chatData.message}
-              onChange={(e) => setChatData({ ...chatData, message: e.target.value })}
-              onKeyDown={handleKeyDown}  // Aquí mantenemos la funcionalidad de "Enter"
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading}
               className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             <button
               onClick={toggleListening}
-              className="microphone-btn p-2 bg-blue-500 text-white rounded-full hover:bg-blue-400 flex items-center justify-center"
+              disabled={isLoading}
+              className={`microphone-btn p-2 ${isLoading ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-400'} text-white rounded-full flex items-center justify-center`}
             >
               <i className={`fa ${isListening ? 'fa-microphone-slash' : 'fa-microphone'} text-xl`}></i>
             </button>
           </div>
         </div>
 
-        {/* Botón de lectura en voz alta */}
+        {/* Action Buttons */}
         <div className="input-actions flex justify-end mt-2 space-x-2">
           <button
             onClick={handleSendMessage}
-            className="send-button p-2 bg-blue-500 text-white rounded-full hover:bg-blue-400 flex items-center justify-center"
+            disabled={isLoading || !chatData.message.trim()}
+            className={`send-button p-2 ${isLoading || !chatData.message.trim() ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-400'} text-white rounded-full flex items-center justify-center`}
           >
             <i className="fas fa-paper-plane text-xl"></i>
           </button>
           <button
-            onClick={() => setShouldRead((prev) => !prev)}  // Alternar entre habilitar o deshabilitar la lectura en voz alta
+            onClick={() => setShouldRead(prev => !prev)}
             className="read-toggle-btn p-2 bg-gray-500 text-white rounded-full hover:bg-gray-400 flex items-center justify-center"
           >
             <i className={`fa ${shouldRead ? 'fa-volume-up' : 'fa-volume-off'} text-xl`}></i>
@@ -239,5 +246,6 @@ const Chatbot = () => {
     </div>
   );
 };
+
 
 export default Chatbot;

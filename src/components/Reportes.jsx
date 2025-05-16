@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
-import SalesOverTimeChart from './SalesOverTimeChart';
 
 function Reportes() {
   const { getToken } = useAuth();
@@ -14,7 +13,6 @@ function Reportes() {
   const [expandedColaborador, setExpandedColaborador] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedRange, setSelectedRange] = useState('year');
 
   // Estados para la paginación local (frontend) de ventas
   const [currentPageVentas, setCurrentPageVentas] = useState(1);
@@ -199,6 +197,7 @@ function Reportes() {
     }
   };
 
+  
   const goToPreviousPageVentas = () => {
     if (currentPageVentas > 1) {
       setCurrentPageVentas(currentPageVentas - 1);
@@ -253,10 +252,6 @@ function Reportes() {
     return getPaginatedData(cobrosFiltrados, currentPage, itemsPerPage);
   };
 
-  // Cambiar el rango de tiempo
-  const handleRangeChange = (range) => {
-    setSelectedRange(range);
-  };
 
   // Obtener ventas paginadas (paginación local)
   const ventasPaginadas = getPaginatedData(ventas, currentPageVentas, itemsPerPageVentas);
@@ -283,50 +278,6 @@ function Reportes() {
     <div className="reportes-container p-6">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">Centralización de Reportes</h2>
       
-      {/* Botones para seleccionar el rango de tiempo */}
-      <div className="flex flex-wrap space-x-2 mb-8">
-        <button 
-          onClick={() => handleRangeChange('day')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'day' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}
-        >
-          Hoy
-        </button>
-        <button 
-          onClick={() => handleRangeChange('week')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'week' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
-        >
-          Esta Semana
-        </button>
-        <button 
-          onClick={() => handleRangeChange('month')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'month' ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'}`}
-        >
-          Este Mes
-        </button>
-        <button 
-          onClick={() => handleRangeChange('year')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'year' ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
-        >
-          Este Año
-        </button>
-        <button 
-          onClick={() => handleRangeChange('historical')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'historical' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
-        >
-          Histórico
-        </button>
-      </div>
-
-      {/* Gráfico de ventas con mensaje cuando no hay datos */}
-      <div className="mb-8">
-        {ventas.length > 0 ? (
-          <SalesOverTimeChart ventas={ventas} selectedRange={selectedRange} />
-        ) : (
-          <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-lg text-gray-500">No hay datos de ventas disponibles</p>
-          </div>
-        )}
-      </div>
       {/* Dashboard resumen */}
       <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">

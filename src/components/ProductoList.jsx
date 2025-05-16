@@ -1,11 +1,13 @@
 import React, { useEffect, useState,useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import api from '../services/api';
+import ProductStatsChart from './ProductStatsChart';
 
 function ProductoList() {
   const { getToken } = useAuth();
   const [productoData, setProductoData] = useState({
     nombre: '',
+    precioCompra: 0,
     precio: 0,
     cantidad: 0,
     editing: false,
@@ -16,6 +18,18 @@ function ProductoList() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [productosTerminados, setProductosTerminados] = useState([]);
+  const productosPorPagina = 24;
+  const productosAmostrar = productos.slice(0, productosPorPagina);
+
+  const [paginaTerminados, setPaginaTerminados] = useState(1);
+const productosPorPaginaTerminados = 10;
+const productosTerminadosPorPagina = productosTerminados.slice(
+  (paginaTerminados - 1) * productosPorPaginaTerminados,
+  paginaTerminados * productosPorPaginaTerminados
+);
+  const [selectedRange, setSelectedRange] = useState('month');
+
+
 
   // Envuelve fetchProductos en useCallback
   const fetchProductos = useCallback(async () => {
@@ -89,7 +103,7 @@ function ProductoList() {
   };
 
   const handleAddOrEditProducto = async () => {
-    if (!productoData.nombre || productoData.precio <= 0 || productoData.cantidad < 0) {
+  if (!productoData.nombre || productoData.precio <= 0 || productoData.precioCompra <= 0 || productoData.cantidad < 0) {
       setError('Por favor, completa todos los campos correctamente.');
       return;
     }
@@ -106,6 +120,7 @@ function ProductoList() {
         // Actualizar producto existente
         const response = await api.put(`/productos/${productoData.currentProductoId}`, {
           nombre: productoData.nombre,
+          precioCompra: productoData.precioCompra,
           precio: productoData.precio,
           cantidad: productoData.cantidad
         }, {
@@ -120,6 +135,7 @@ function ProductoList() {
         // Agregar nuevo producto
         const response = await api.post('/productos', {
           nombre: productoData.nombre,
+          precioCompra: productoData.precioCompra,
           precio: productoData.precio,
           cantidad: productoData.cantidad
         }, {
@@ -145,6 +161,7 @@ function ProductoList() {
       currentProductoId: producto._id,
       nombre: producto.nombre,
       precio: producto.precio,
+      precioCompra: producto.precioCompra,
       cantidad: producto.cantidad,
       showForm: true
     });
@@ -153,6 +170,7 @@ function ProductoList() {
   const resetForm = () => {
     setProductoData({
       nombre: '',
+      precioCompra: 0,
       precio: 0,
       cantidad: 0,
       editing: false,
@@ -168,6 +186,11 @@ function ProductoList() {
     }));
   };
 
+  const handleRangeChange = (range) => {
+    setSelectedRange(range);
+    // Opcionalmente podrías querer recargar los datos
+    fetchProductos();
+  };
 
   return (
     <div className="list p-6">
@@ -183,6 +206,78 @@ function ProductoList() {
       {/* Mostrar indicador de carga */}
       {isLoading && <p>Cargando productos...</p>}
       
+
+      {/* Botones para seleccionar el rango de tiempo */}
+      <div className="flex flex-wrap space-x-2 mb-8">
+        <button 
+          onClick={() => handleRangeChange('day')} 
+          className={`px-4 py-2 rounded mb-2 transition-colors ${
+            selectedRange === 'day' 
+              ? 'bg-blue-600 text-white' 
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+          }`}
+        >
+          Hoy
+        </button>
+        <button 
+          onClick={() => handleRangeChange('week')} 
+          className={`px-4 py-2 rounded mb-2 transition-colors ${
+            selectedRange === 'week' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-green-100 text-green-700 hover:bg-green-200'
+          }`}
+        >
+          Esta Semana
+        </button>
+        <button 
+          onClick={() => handleRangeChange('month')} 
+          className={`px-4 py-2 rounded mb-2 transition-colors ${
+            selectedRange === 'month' 
+              ? 'bg-yellow-600 text-white' 
+              : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+          }`}
+        >
+          Este Mes
+        </button>
+        <button 
+          onClick={() => handleRangeChange('year')} 
+          className={`px-4 py-2 rounded mb-2 transition-colors ${
+            selectedRange === 'year' 
+              ? 'bg-red-600 text-white' 
+              : 'bg-red-100 text-red-700 hover:bg-red-200'
+          }`}
+        >
+          Este Año
+        </button>
+        <button 
+          onClick={() => handleRangeChange('historical')} 
+          className={`px-4 py-2 rounded mb-2 transition-colors ${
+            selectedRange === 'historical' 
+              ? 'bg-purple-600 text-white' 
+              : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+          }`}
+        >
+          Histórico
+        </button>
+      </div>
+
+
+    {/* Agregar el gráfico aquí */}
+<div className="mb-8">
+  {productos.length > 0 ? (
+    <ProductStatsChart 
+      productos={productos}
+      productosTerminados={productosTerminados}
+      selectedRange={selectedRange}
+    />
+  ) : (
+    <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
+      <p className="text-lg text-gray-500">No hay datos de productos disponibles</p>
+    </div>
+  )}
+</div>
+
+
       {/* Botón para mostrar o cancelar el formulario */}
       <button
         onClick={toggleFormVisibility}
@@ -205,6 +300,16 @@ function ProductoList() {
               onChange={(e) => setProductoData({ ...productoData, nombre: e.target.value })}
               className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
+
+            {/* Precio de compra */}
+            <input
+              type="number"
+              placeholder="Precio de Compra"
+              value={productoData.precioCompra || ''}
+              onChange={(e) => setProductoData({ ...productoData, precioCompra: parseFloat(e.target.value) || 0 })}
+              className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+
 
             {/* Precio del producto */}
             <input
@@ -256,12 +361,14 @@ function ProductoList() {
       )}
 
       {/* Tarjetas de Productos */}
-      <div className="grid grid-cols-4 gap-4 mt-4">
-        {productos.map((producto) => (
+<div className="grid grid-cols-6 gap-4 mt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+
+        {productosAmostrar.map((producto) => (
           <div key={producto._id} className="card p-4 border rounded-md shadow-lg">
             <h3 className="font-semibold text-xl">{producto.nombre}</h3>
             <p className="text-lg">S/ {producto.precio}</p>
             <p>Cantidad: {producto.cantidad}</p>
+            <p>Cantidad Vendida: {producto.cantidadVendida}</p>
             <div className="mt-4">
               <button
                 onClick={() => handleEditProducto(producto)}
@@ -280,16 +387,16 @@ function ProductoList() {
     <thead>
       <tr>
         <th className="px-6 py-2 border-b text-left">Nombre</th>
+        <th className="px-6 py-2 border-b text-left">Costo</th>
         <th className="px-6 py-2 border-b text-left">Precio</th>
         <th className="px-6 py-2 border-b text-left">Fecha de Agotamiento</th>
       </tr>
     </thead>
     <tbody>
-      {productosTerminados.map((producto) => (
+      {productosTerminadosPorPagina.map((producto) => (
         <tr key={producto._id} className="hover:bg-gray-100">
           <td className="px-6 py-3 border-b">{producto.nombre}</td>
-          <td className="px-6 py-3 border-b">{producto.cantidad}</td>
-
+          <td className="px-6 py-3 border-b">S/ {producto.precioCompra}</td>
           <td className="px-6 py-3 border-b">S/ {producto.precio}</td>
           <td className="px-6 py-3 border-b">{producto.fechaAgotamiento}</td>
         </tr>
@@ -297,6 +404,24 @@ function ProductoList() {
     </tbody>
   </table>
 </div>
+
+{/* Paginación de productos terminados */}
+<div className="flex justify-between mt-4">
+  <button
+    onClick={() => setPaginaTerminados(paginaTerminados > 1 ? paginaTerminados - 1 : 1)}
+    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+  >
+    Anterior
+  </button>
+  <span>Página {paginaTerminados}</span>
+  <button
+    onClick={() => setPaginaTerminados(paginaTerminados + 1)}
+    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+  >
+    Siguiente
+  </button>
+</div>
+
     </div>
   );
 }

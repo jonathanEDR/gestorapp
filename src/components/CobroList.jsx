@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import api from '../services/api'; // Ajusta la ruta según la ubicación de tu archivo api.js
+import CollectionsOverTimeChart from './CollectionsOverTimeChart';
 
 function CobroList() {
   const { getToken } = useAuth();
@@ -9,7 +10,10 @@ function CobroList() {
     colaboradorId: '',
     montoPagado: 0,
     estadoPago: 'parcial',
-  });
+      yape: 0, // Campo para Yape
+      efectivo: 0, // Campo para Efectivo
+      gastosImprevistos: 0, // Campo para Gastos Imprevistos
+});
   const [colaboradores, setColaboradores] = useState([]);
   const [showForm, setShowForm] = useState(false);
   
@@ -17,7 +21,8 @@ function CobroList() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
-
+  const [selectedRange, setSelectedRange] = useState('month');
+  
   // Envuelve fetchCobros en useCallback
   const fetchCobros = useCallback(async (page) => {
     try {
@@ -80,62 +85,78 @@ function CobroList() {
   }, [fetchCobros, fetchColaboradores, currentPage]);
 
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setNewCobro((prev) => ({
+const handleChange = (e) => {
+  const { name, value } = e.target;
+
+  // Actualizar el valor del campo correspondiente
+  setNewCobro((prev) => {
+    const updatedCobro = {
       ...prev,
       [name]: value,
-    }));
-  };
+    };
 
-  const handleAddCobro = async () => {
-    if (!newCobro.colaboradorId || Number(newCobro.montoPagado) <= 0) {
-      alert('Por favor, completa todos los campos correctamente.');
+    // Asegurar que el montoPagado siempre sea la suma de Yape, Efectivo y Gastos Imprevistos
+    updatedCobro.montoPagado = Number(updatedCobro.yape || 0) + Number(updatedCobro.efectivo || 0) + Number(updatedCobro.gastosImprevistos || 0);
+
+    return updatedCobro;
+  });
+};
+
+const handleAddCobro = async () => {
+  if (!newCobro.colaboradorId || Number(newCobro.montoPagado) <= 0) {
+    alert('Por favor, completa todos los campos correctamente.');
+    return;
+  }
+
+  try {
+    const token = await getToken();
+    if (!token) {
+      alert('No estás autorizado');
       return;
     }
 
-    try {
-      const token = await getToken();
-      if (!token) {
-        alert('No estás autorizado');
-        return;
-      }
+    const response = await api.get(`/cobros/debtInfo/${newCobro.colaboradorId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
 
-      const response = await api.get(`/cobros/debtInfo/${newCobro.colaboradorId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+    const deudaPendiente = response.data.remainingDebt;
 
-      const deudaPendiente = response.data.remainingDebt;
-
-      if (Number(newCobro.montoPagado) > deudaPendiente) {
-        alert(`El monto pagado no puede exceder la deuda pendiente de ${deudaPendiente}`);
-        return;
-      }
-
-      const responseCobro = await api.post('/cobros', {
-        ...newCobro,
-        montoPagado: Number(newCobro.montoPagado)
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (responseCobro?.data) {
-        // Refrescar la lista después de agregar un nuevo cobro
-        fetchCobros(1); // Volver a la primera página después de añadir
-        setCurrentPage(1);
-        setNewCobro({
-          colaboradorId: '',
-          montoPagado: 0,
-          estadoPago: 'parcial'
-        });
-        setShowForm(false); // Cerrar el formulario
-        alert('Cobro agregado exitosamente');
-      }
-    } catch (error) {
-      console.error('Error al verificar deuda pendiente:', error);
-      alert('Error al verificar deuda pendiente');
+    if (Number(newCobro.montoPagado) > deudaPendiente) {
+      alert(`El monto pagado no puede exceder la deuda pendiente de ${deudaPendiente}`);
+      return;
     }
-  };
+
+    // Determinar el estadoPago automáticamente
+    const estadoPago = Number(newCobro.montoPagado) === deudaPendiente ? 'total' : 'parcial';
+
+    const responseCobro = await api.post('/cobros', {
+      ...newCobro,
+      montoPagado: Number(newCobro.montoPagado), // Ya está calculado automáticamente
+      estadoPago // Usamos el valor calculado
+    }, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (responseCobro?.data) {
+      fetchCobros(1); // Volver a la primera página después de añadir
+      setCurrentPage(1);
+      setNewCobro({
+        colaboradorId: '',
+        montoPagado: 0,
+        estadoPago: 'parcial',
+        yape: 0,
+        efectivo: 0,
+        gastosImprevistos: 0
+      });
+      setShowForm(false); // Cerrar el formulario
+      alert('Cobro agregado exitosamente');
+    }
+  } catch (error) {
+    console.error('Error al verificar deuda pendiente:', error);
+    alert('Error al verificar deuda pendiente');
+  }
+};
+
 
   const handleDeleteCobro = async (id) => {
     if (!id) {
@@ -180,10 +201,60 @@ function CobroList() {
     }
   };
 
+// Agrega la función para manejar el cambio de rango
+const handleRangeChange = (range) => {
+  setSelectedRange(range);
+};
+
   return (
     <div className="list">
       <h2 className="text-2xl font-semibold text-gray-800 mb-4">Historial de Cobros</h2>
       
+      {/* Botones para seleccionar el rango de tiempo */}
+<div className="flex flex-wrap space-x-2 mb-8">
+  <button 
+    onClick={() => handleRangeChange('day')} 
+    className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'day' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}
+  >
+    Hoy
+  </button>
+  <button 
+    onClick={() => handleRangeChange('week')} 
+    className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'week' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+  >
+    Esta Semana
+  </button>
+  <button 
+    onClick={() => handleRangeChange('month')} 
+    className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'month' ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'}`}
+  >
+    Este Mes
+  </button>
+  <button 
+    onClick={() => handleRangeChange('year')} 
+    className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'year' ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+  >
+    Este Año
+  </button>
+  <button 
+    onClick={() => handleRangeChange('historical')} 
+    className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'historical' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
+  >
+    Histórico
+  </button>
+</div>
+
+{/* Gráfico de cobros */}
+<div className="mb-8">
+  {cobros.length > 0 ? (
+    <CollectionsOverTimeChart cobros={cobros} selectedRange={selectedRange} />
+  ) : (
+    <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
+      <p className="text-lg text-gray-500">No hay datos de cobros disponibles</p>
+    </div>
+  )}
+</div>
+
       <button
         className="toggle-form-btn bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 mb-4"
         onClick={toggleFormVisibility}
@@ -197,61 +268,79 @@ function CobroList() {
         </div>
       ) : cobros.length > 0 ? (
         <>
-          <table className="min-w-full table-auto border-collapse border border-gray-300 mb-4">
-            <thead className="bg-gray-100">
-              <tr>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">#</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Colaborador</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Pagado</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Fecha de Pago</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Estado de Pago</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cobros.map((cobro, index) => (
-                <tr key={cobro._id} className="hover:bg-gray-50">
+<table className="min-w-full table-auto border-collapse border border-gray-300 mb-4">
+  <thead className="bg-gray-100">
+    <tr>
+      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">#</th>
+      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Colaborador</th>
+      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Yape</th>
+      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Efectivo</th>
+      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Gastos Imprevistos</th>
+      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Pagado</th>
+      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Estado de Pago</th>
+      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    {cobros.map((cobro, index) => (
+      <tr key={cobro._id} className="hover:bg-gray-50">
+        <td className="px-4 py-2 text-sm text-gray-600 border-b">{index + 1}</td>
 
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">{index + 1}</td>
+        <td className="px-4 py-2 text-sm text-gray-600 border-b">
+          {cobro.colaboradorId && typeof cobro.colaboradorId === 'object'
+            ? cobro.colaboradorId.nombre
+            : 'Desconocido'}
+        </td>
 
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">
-                    {cobro.colaboradorId && typeof cobro.colaboradorId === 'object'
-                      ? cobro.colaboradorId.nombre
-                      : 'Desconocido'}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {cobro.montoPagado}</td>
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">{new Date(cobro.fechaPago).toLocaleDateString()}</td>
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">{cobro.estadoPago}</td>
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">
-                    <button className="text-red-500 hover:text-red-700" onClick={() => handleDeleteCobro(cobro._id)}>Eliminar</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          
+        <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {cobro.yape || 0}</td>
+        <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {cobro.efectivo || 0}</td>
+        <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {cobro.gastosImprevistos || 0}</td>
+        <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {cobro.montoPagado || 0}</td>
+        <td className="px-4 py-2 text-sm text-gray-600 border-b">
+          {cobro.estadoPago === 'total' ? (
+            <span className="text-green-500 font-semibold">total</span>
+          ) : (
+            <span className="text-blue-500 font-semibold">parcial</span>
+          )}
+        </td>
+        <td className="px-4 py-2 text-sm text-gray-600 border-b">
+          <button
+            className="text-red-500 hover:text-red-700"
+            onClick={() => handleDeleteCobro(cobro._id)}
+          >
+            Eliminar
+          </button>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+
           {/* Controles de paginación */}
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-600">
-              Página {currentPage} de {totalPages}
-            </div>
-            <div className="flex space-x-2">
-              <button 
-                onClick={goToPreviousPage} 
-                disabled={currentPage === 1}
-                className={`px-3 py-1 rounded ${currentPage === 1 ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
-              >
-                Anterior
-              </button>
-              <button 
-                onClick={goToNextPage} 
-                disabled={currentPage === totalPages}
-                className={`px-3 py-1 rounded ${currentPage === totalPages ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
+
+<div className="flex justify-between items-center">
+  <div className="text-sm text-gray-600">
+    Página {currentPage} de {totalPages}
+  </div>
+  <div className="flex space-x-2">
+    <button
+      onClick={goToPreviousPage}
+      disabled={currentPage === 1}
+      className={`px-3 py-1 rounded ${currentPage === 1 ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+    >
+      Anterior
+    </button>
+    <button
+      onClick={goToNextPage}
+      disabled={currentPage === totalPages}
+      className={`px-3 py-1 rounded ${currentPage === totalPages ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+    >
+      Siguiente
+    </button>
+  </div>
+</div>
+
         </>
       ) : (
         <p className="text-gray-600">No hay cobros registrados.</p>
@@ -277,6 +366,59 @@ function CobroList() {
               ))}
             </select>
             
+{/* Campo para Yape */}
+<div className="mb-4">
+  <label htmlFor="yape" className="block text-sm font-medium text-gray-700">
+    Yape (Método de pago móvil)
+  </label>
+  <input
+    type="number"
+    name="yape"
+    id="yape"
+    placeholder="Monto transferido via Yape"
+    value={newCobro.yape || 0}
+    onChange={handleChange}
+    className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+  />
+  <p className="text-xs text-gray-500 mt-1">Por favor ingrese el monto transferido usando Yape.</p>
+</div>
+
+{/* Campo para Efectivo */}
+<div className="mb-4">
+  <label htmlFor="efectivo" className="block text-sm font-medium text-gray-700">
+    Efectivo (Pago en efectivo)
+  </label>
+  <input
+    type="number"
+    name="efectivo"
+    id="efectivo"
+    placeholder="Monto recibido en efectivo"
+    value={newCobro.efectivo || 0}
+    onChange={handleChange}
+    className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+  />
+  <p className="text-xs text-gray-500 mt-1">Por favor ingrese el monto pagado en efectivo.</p>
+</div>
+
+{/* Campo para Gastos Imprevistos */}
+<div className="mb-4">
+  <label htmlFor="gastosImprevistos" className="block text-sm font-medium text-gray-700">
+    Gastos Imprevistos (Costos adicionales)
+  </label>
+  <input
+    type="number"
+    name="gastosImprevistos"
+    id="gastosImprevistos"
+    placeholder="Monto de gastos imprevistos"
+    value={newCobro.gastosImprevistos || 0}
+    onChange={handleChange}
+    className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+  />
+  <p className="text-xs text-gray-500 mt-1">Ingrese cualquier gasto adicional no planeado (por ejemplo, gastos inesperados).</p>
+</div>
+
+
+
             <input
               type="number"
               name="montoPagado"
@@ -286,16 +428,7 @@ function CobroList() {
               className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             
-            <select
-              name="estadoPago"
-              value={newCobro.estadoPago}
-              onChange={handleChange}
-              className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
-              <option value="parcial">Parcial</option>
-              <option value="total">Total</option>
-            </select>
-            
+
             <div className="flex justify-end space-x-2">
               <button 
                 className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
