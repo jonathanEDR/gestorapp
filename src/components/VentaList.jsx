@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
 import { useAuth } from '@clerk/clerk-react';
-import SalesOverTimeChart from './SalesOverTimeChart';
+import SalesOverTimeChart from './graphics/SalesOverTimeChart';
 
 function VentaList() {
   const { getToken } = useAuth();
@@ -706,26 +706,28 @@ const handleEliminarDevolucion = async (devolucionId) => {
               )}
             </div>
 
-            {/* Producto Select */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Producto</label>
-              <select
-                value={ventaData.productoId}
-                onChange={handleProductoChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
-                <option value="">Selecciona un Producto</option>
-                {productos && productos.length > 0 ? (
-                  productos.map((producto) => (
-                    <option key={producto._id} value={producto._id}>
-                      {producto.nombre} (Stock: {producto.cantidad - producto.cantidadVendida})
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>No hay productos disponibles</option>
-                )}
-              </select>
-            </div>
+{/* Producto Select */}
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">Producto</label>
+  <select
+    value={ventaData.productoId}
+    onChange={handleProductoChange}
+    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+  >
+    <option value="">Selecciona un Producto</option>
+    {productos && productos.length > 0 ? (
+      productos
+        .filter((producto) => producto.cantidad - producto.cantidadVendida > 0) 
+        .map((producto) => (
+          <option key={producto._id} value={producto._id}>
+            {producto.nombre} (Stock: {producto.cantidad - producto.cantidadVendida})
+          </option>
+        ))
+    ) : (
+      <option disabled>No hay productos disponibles</option>
+    )}
+  </select>
+</div>
 
             {/* Cantidad Input */}
             <div className="mb-4">
@@ -756,19 +758,7 @@ const handleEliminarDevolucion = async (devolucionId) => {
               />
             </div>
 
-            {/* Estado de Pago Select */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Estado de Pago</label>
-              <select
-                value={ventaData.estadoPago}
-                onChange={handleEstadoPagoChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
-                <option value="Pendiente">Pendiente</option>
-                <option value="Pagado">Pagado</option>
-                <option value="Parcial">Parcial</option>
-              </select>
-            </div>
+
 
             {/* Cantidad Pagada (solo para pagos parciales) */}
             {ventaData.estadoPago === 'Parcial' && (

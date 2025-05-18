@@ -1,7 +1,7 @@
 import React, { useEffect, useState,useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import api from '../services/api';
-import ProductStatsChart from './ProductStatsChart';
+import ProductStatsChart from './graphics/ProductStatsChart';
 
 function ProductoList() {
   const { getToken } = useAuth();
@@ -27,50 +27,46 @@ const productosTerminadosPorPagina = productosTerminados.slice(
   (paginaTerminados - 1) * productosPorPaginaTerminados,
   paginaTerminados * productosPorPaginaTerminados
 );
-  const [selectedRange, setSelectedRange] = useState('month');
 
 
 
   // Envuelve fetchProductos en useCallback
-  const fetchProductos = useCallback(async () => {
-    try {
-      const token = await getToken();
-      console.log('Token recibido:', token); // Verifica el token
-      if (!token) {
-        setError('No estás autorizado');
-        setIsLoading(false);
-        return;
-      }
-
-      const response = await api.get('/productos', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      // Procesar productos para mover los que tienen cantidadRestante == 0 a "productosTerminados"
-      const productosActivos = [];
-      const productosFinalizados = [];
-
-      response.data.forEach((producto) => {
-        if (producto.cantidadRestante === 0) {
-          productosFinalizados.push({
-            ...producto,
-            fechaAgotamiento: new Date().toLocaleString(),
-          });
-        } else {
-          productosActivos.push(producto);
-        }
-      });
-
-      setProductos(productosActivos);
-      setProductosTerminados(productosFinalizados);
-    } catch (error) {
-      console.error('Error al obtener productos:', error);
-      setError('Error al cargar productos');
-    } finally {
-      setIsLoading(false);
+const fetchProductos = useCallback(async () => {
+  try {
+    setIsLoading(true);
+    const token = await getToken();
+    if (!token) {
+      setError('No estás autorizado');
+      return;
     }
-  }, [getToken]);
 
+    const response = await api.get('/productos', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const productosActivos = [];
+    const productosFinalizados = [];
+
+    response.data.forEach((producto) => {
+      if (producto.cantidadRestante === 0) {
+        productosFinalizados.push({
+          ...producto,
+          fechaAgotamiento: new Date().toLocaleString(),
+        });
+      } else {
+        productosActivos.push(producto);
+      }
+    });
+
+    setProductos(productosActivos);
+    setProductosTerminados(productosFinalizados);
+  } catch (error) {
+    console.error('Error al obtener productos:', error);
+    setError('Error al cargar productos');
+  } finally {
+    setIsLoading(false);
+  }
+}, [getToken]);
   // useEffect para llamar a fetchProductos
   useEffect(() => {
     fetchProductos();
@@ -186,11 +182,6 @@ const productosTerminadosPorPagina = productosTerminados.slice(
     }));
   };
 
-  const handleRangeChange = (range) => {
-    setSelectedRange(range);
-    // Opcionalmente podrías querer recargar los datos
-    fetchProductos();
-  };
 
   return (
     <div className="list p-6">
@@ -207,69 +198,13 @@ const productosTerminadosPorPagina = productosTerminados.slice(
       {isLoading && <p>Cargando productos...</p>}
       
 
-      {/* Botones para seleccionar el rango de tiempo */}
-      <div className="flex flex-wrap space-x-2 mb-8">
-        <button 
-          onClick={() => handleRangeChange('day')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${
-            selectedRange === 'day' 
-              ? 'bg-blue-600 text-white' 
-              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-          }`}
-        >
-          Hoy
-        </button>
-        <button 
-          onClick={() => handleRangeChange('week')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${
-            selectedRange === 'week' 
-              ? 'bg-green-600 text-white' 
-              : 'bg-green-100 text-green-700 hover:bg-green-200'
-          }`}
-        >
-          Esta Semana
-        </button>
-        <button 
-          onClick={() => handleRangeChange('month')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${
-            selectedRange === 'month' 
-              ? 'bg-yellow-600 text-white' 
-              : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-          }`}
-        >
-          Este Mes
-        </button>
-        <button 
-          onClick={() => handleRangeChange('year')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${
-            selectedRange === 'year' 
-              ? 'bg-red-600 text-white' 
-              : 'bg-red-100 text-red-700 hover:bg-red-200'
-          }`}
-        >
-          Este Año
-        </button>
-        <button 
-          onClick={() => handleRangeChange('historical')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${
-            selectedRange === 'historical' 
-              ? 'bg-purple-600 text-white' 
-              : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-          }`}
-        >
-          Histórico
-        </button>
-      </div>
-
-
     {/* Agregar el gráfico aquí */}
 <div className="mb-8">
   {productos.length > 0 ? (
-    <ProductStatsChart 
-      productos={productos}
-      productosTerminados={productosTerminados}
-      selectedRange={selectedRange}
-    />
+<ProductStatsChart 
+  productos={productos}
+  productosTerminados={productosTerminados}
+/>
   ) : (
     <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
       <p className="text-lg text-gray-500">No hay datos de productos disponibles</p>

@@ -68,29 +68,39 @@ const CollectionsOverTimeChart = ({ cobros, selectedRange }) => {
         );
         break;
       }
-      case 'week': {
-        const currentDate = new Date(now);
-        const dayOfWeek = currentDate.getDay();
-        const startOfWeek = new Date(currentDate);
-        startOfWeek.setDate(currentDate.getDate() - dayOfWeek);
-        startOfWeek.setHours(0, 0, 0, 0);
-        
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 7);
-        
-        resultado = cobrosConFechasValidas.filter(cobro =>
-          cobro.fechaCobro >= startOfWeek && cobro.fechaCobro < endOfWeek
-        );
-        break;
-      }
-      case 'month': {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        resultado = cobrosConFechasValidas.filter(cobro =>
-          cobro.fechaCobro >= startOfMonth && cobro.fechaCobro < endOfMonth
-        );
-        break;
-      }
+case 'week': {
+  // Obtener el lunes de la semana actual
+  const currentDate = new Date(now);
+  const currentDay = currentDate.getDay() || 7; // Convertir 0 (domingo) a 7
+  const diff = currentDay - 1; // Diferencia hasta el lunes
+  
+  const startOfWeek = new Date(currentDate);
+  startOfWeek.setDate(currentDate.getDate() - diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 7);
+  endOfWeek.setHours(0, 0, 0, 0);
+
+  resultado = cobrosConFechasValidas.filter(cobro =>
+    cobro.fechaCobro >= startOfWeek && cobro.fechaCobro < endOfWeek
+  );
+  break;
+}
+
+case 'month': {
+  // Usar el primer y último día del mes actual
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  endOfMonth.setHours(23, 59, 59, 999);
+
+  resultado = cobrosConFechasValidas.filter(cobro =>
+    cobro.fechaCobro >= startOfMonth && cobro.fechaCobro <= endOfMonth
+  );
+  break;
+}
       case 'year': {
         const startOfYear = new Date(now.getFullYear(), 0, 1);
         const endOfYear = new Date(now.getFullYear() + 1, 0, 1);
@@ -114,10 +124,13 @@ const CollectionsOverTimeChart = ({ cobros, selectedRange }) => {
     switch (range) {
       case 'day':
         return `${String(date.getHours()).padStart(2, '0')}:00`;
-      case 'week':
-        return date.toLocaleDateString('es-ES', options);
-      case 'month':
-        return `${date.getDate()}/${date.getMonth() + 1}`;
+    case 'week':
+      return date.toLocaleDateString('es-ES', { 
+        weekday: 'short',
+        day: 'numeric'
+      });
+    case 'month':
+      return date.getDate().toString(); // Solo mostrar el día del mes
       case 'year':
         return `${new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(date)}`;
       default:
@@ -155,38 +168,43 @@ const CollectionsOverTimeChart = ({ cobros, selectedRange }) => {
         }
         break;
       }
-      case 'week': {
-        const currentDate = new Date(now);
-        const dayOfWeek = currentDate.getDay();
-        const startOfWeek = new Date(currentDate);
-        startOfWeek.setDate(currentDate.getDate() - dayOfWeek);
-        startOfWeek.setHours(0, 0, 0, 0);
-        
-        for (let i = 0; i < 7; i++) {
-          const date = new Date(startOfWeek);
-          date.setDate(startOfWeek.getDate() + i);
-          intervals.push({
-            key: getGroupingFormat(date, range),
-            label: formatDate(date, range)
-          });
-        }
-        break;
+    case 'week': {
+      // Obtener el lunes de la semana actual
+      const currentDate = new Date(now);
+      const currentDay = currentDate.getDay() || 7;
+      const diff = currentDay - 1;
+      
+      const startOfWeek = new Date(currentDate);
+      startOfWeek.setDate(currentDate.getDate() - diff);
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      // Generar los 7 días comenzando desde el lunes
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(startOfWeek);
+        date.setDate(startOfWeek.getDate() + i);
+        intervals.push({
+          key: getGroupingFormat(date, range),
+          label: formatDate(date, range)
+        });
       }
-      case 'month': {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        const daysInMonth = endOfMonth.getDate();
-        
-        for (let i = 1; i <= daysInMonth; i++) {
-          const date = new Date(startOfMonth);
-          date.setDate(i);
-          intervals.push({
-            key: getGroupingFormat(date, range),
-            label: formatDate(date, range)
-          });
-        }
-        break;
+      break;
+    }
+    case 'month': {
+      // Usar el número real de días en el mes
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const daysInMonth = endOfMonth.getDate();
+      
+      for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(startOfMonth);
+        date.setDate(i);
+        intervals.push({
+          key: getGroupingFormat(date, range),
+          label: formatDate(date, range)
+        });
       }
+      break;
+    }
       case 'year': {
         for (let i = 0; i < 12; i++) {
           const date = new Date(now.getFullYear(), i, 1);

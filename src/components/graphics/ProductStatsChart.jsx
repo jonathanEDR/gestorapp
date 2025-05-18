@@ -177,9 +177,33 @@ const InventoryChart = ({ productos = [] }) => {
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-lg">
-      <div className="h-[500px]">
-        <Bar data={chartData} options={options} />
-      </div>
+       <div style={{ 
+      height: '600px',
+      width: '100%',
+      maxWidth: '1400px',
+      margin: '0 auto'
+    }}>
+        
+      <Bar data={chartData} options={{
+        ...options,
+        maintainAspectRatio: false,
+        responsive: true,
+        scales: {
+          ...options.scales,
+          x: {
+            ...options.scales.x,
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45,
+              autoSkip: false,
+              font: {
+                size: 11
+              }
+            }
+          }
+        }
+      }} />
+    </div>
       
       {/* Resumen de Inventario */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">

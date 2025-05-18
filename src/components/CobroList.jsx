@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import api from '../services/api'; // Ajusta la ruta según la ubicación de tu archivo api.js
-import CollectionsOverTimeChart from './CollectionsOverTimeChart';
+import CollectionsOverTimeChart from './graphics/CollectionsOverTimeChart';
 
 function CobroList() {
   const { getToken } = useAuth();
@@ -72,7 +72,22 @@ function CobroList() {
         },
       });
 
-      setColaboradores(response.data);
+    // Para cada colaborador, obtener su deuda pendiente
+    const colaboradoresConDeuda = await Promise.all(
+      response.data.map(async (colaborador) => {
+        const deudaResponse = await api.get(`/cobros/debtInfo/${colaborador._id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        return {
+          ...colaborador,
+          deudaPendiente: deudaResponse.data.remainingDebt
+        };
+      })
+    );
+
+      setColaboradores(colaboradoresConDeuda);
     } catch (error) {
       console.error('Error al obtener los colaboradores:', error);
     }
@@ -87,6 +102,8 @@ function CobroList() {
 
 const handleChange = (e) => {
   const { name, value } = e.target;
+
+  
 
   // Actualizar el valor del campo correspondiente
   setNewCobro((prev) => {
@@ -208,7 +225,7 @@ const handleRangeChange = (range) => {
 
   return (
     <div className="list">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Historial de Cobros</h2>
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Control de Efectivo </h2>
       
       {/* Botones para seleccionar el rango de tiempo */}
 <div className="flex flex-wrap space-x-2 mb-8">
@@ -352,19 +369,19 @@ const handleRangeChange = (range) => {
           <div className="modal-content bg-white rounded-lg shadow-lg w-96 p-6">
             <h3 className="text-xl font-semibold text-gray-800 mb-4">Agregar Cobro</h3>
             
-            <select
-              name="colaboradorId"
-              value={newCobro.colaboradorId}
-              onChange={handleChange}
-              className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
-              <option value="">Seleccionar Colaborador</option>
-              {colaboradores.map((colaborador) => (
-                <option key={colaborador._id} value={colaborador._id}>
-                  {colaborador.nombre}
-                </option>
-              ))}
-            </select>
+<select
+  name="colaboradorId"
+  value={newCobro.colaboradorId}
+  onChange={handleChange}
+  className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+>
+  <option value="">Seleccionar Colaborador</option>
+  {colaboradores.map((colaborador) => (
+    <option key={colaborador._id} value={colaborador._id}>
+      {colaborador.nombre} - Venta Total : S/ {colaborador.deudaPendiente?.toFixed(2) || '0.00'}
+    </option>
+  ))}
+</select>
             
 {/* Campo para Yape */}
 <div className="mb-4">
