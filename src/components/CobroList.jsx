@@ -2,6 +2,17 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import api from '../services/api'; // Ajusta la ruta según la ubicación de tu archivo api.js
 import CollectionsOverTimeChart from './graphics/CollectionsOverTimeChart';
+import DeudasPendientes from './tablas/DeudasPendientes'; // Ajusta la ruta si es necesario
+
+
+const getFechaActualString = () => {
+  const hoy = new Date();
+  const year = hoy.getFullYear();
+  const month = String(hoy.getMonth() + 1).padStart(2, '0');
+  const day = String(hoy.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 
 function CobroList() {
   const { getToken } = useAuth();
@@ -11,8 +22,9 @@ function CobroList() {
     montoPagado: 0,
     estadoPago: 'parcial',
       yape: 0, // Campo para Yape
-      efectivo: 0, // Campo para Efectivo
-      gastosImprevistos: 0, // Campo para Gastos Imprevistos
+      efectivo: 0, // ampo para Efectivo
+      gastosImprevistos: 0,
+      fechaPago: getFechaActualString(), // Campo para Fecha de Pago
 });
   const [colaboradores, setColaboradores] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -21,8 +33,12 @@ function CobroList() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [selectedRange, setSelectedRange] = useState('month');
+
   
+  const [selectedRange, setSelectedRange] = useState('month');
+
+
+
   // Envuelve fetchCobros en useCallback
   const fetchCobros = useCallback(async (page) => {
     try {
@@ -33,7 +49,7 @@ function CobroList() {
         return;
       }
 
-      const response = await api.get(`/cobros?page=${page}&limit=15`, {
+    const response = await api.get(`/cobros?page=${page}&limit=15&populate=colaboradorId`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -87,11 +103,17 @@ function CobroList() {
       })
     );
 
-      setColaboradores(colaboradoresConDeuda);
+    // Filtrar solo colaboradores con deuda pendiente
+    const colaboradoresDeudores = colaboradoresConDeuda.filter(
+      colaborador => colaborador.deudaPendiente > 0
+    );
+
+      setColaboradores(colaboradoresDeudores);
     } catch (error) {
       console.error('Error al obtener los colaboradores:', error);
     }
   }, [getToken]);
+
 
   // Usa useEffect con las funciones envueltas en useCallback
   useEffect(() => {
@@ -119,6 +141,7 @@ const handleChange = (e) => {
   });
 };
 
+
 const handleAddCobro = async () => {
   if (!newCobro.colaboradorId || Number(newCobro.montoPagado) <= 0) {
     alert('Por favor, completa todos los campos correctamente.');
@@ -143,19 +166,32 @@ const handleAddCobro = async () => {
       return;
     }
 
-    // Determinar el estadoPago automáticamente
     const estadoPago = Number(newCobro.montoPagado) === deudaPendiente ? 'total' : 'parcial';
 
-    const responseCobro = await api.post('/cobros', {
+    // Crear el objeto de fecha correctamente
+    let fechaSeleccionada = null;
+    if (newCobro.fechaPago) {
+      // Asegurarse de que la fecha se cree correctamente
+      const [year, month, day] = newCobro.fechaPago.split('-');
+      fechaSeleccionada = new Date(year, month - 1, day);
+      // No ajustamos la zona horaria aquí
+    }
+
+    const cobroData = {
       ...newCobro,
-      montoPagado: Number(newCobro.montoPagado), // Ya está calculado automáticamente
-      estadoPago // Usamos el valor calculado
-    }, {
+      fechaPago: fechaSeleccionada ? fechaSeleccionada.toISOString().split('T')[0] : null,
+      montoPagado: Number(newCobro.montoPagado),
+      estadoPago
+    };
+
+    console.log('Fecha que se está enviando:', cobroData.fechaPago); // Para debugging
+
+    const responseCobro = await api.post('/cobros', cobroData, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
     if (responseCobro?.data) {
-      fetchCobros(1); // Volver a la primera página después de añadir
+      fetchCobros(1); // Esto sigue siendo necesario para actualizar la lista de cobros
       setCurrentPage(1);
       setNewCobro({
         colaboradorId: '',
@@ -163,7 +199,8 @@ const handleAddCobro = async () => {
         estadoPago: 'parcial',
         yape: 0,
         efectivo: 0,
-        gastosImprevistos: 0
+        gastosImprevistos: 0,
+        fechaPago: getFechaActualString()
       });
       setShowForm(false); // Cerrar el formulario
       alert('Cobro agregado exitosamente');
@@ -222,6 +259,8 @@ const handleAddCobro = async () => {
 const handleRangeChange = (range) => {
   setSelectedRange(range);
 };
+
+
 
   return (
     <div className="list">
@@ -295,6 +334,8 @@ const handleRangeChange = (range) => {
       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Gastos Imprevistos</th>
       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Pagado</th>
       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Estado de Pago</th>
+      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Fecha</th>
+
       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Acciones</th>
     </tr>
   </thead>
@@ -321,6 +362,9 @@ const handleRangeChange = (range) => {
           )}
         </td>
         <td className="px-4 py-2 text-sm text-gray-600 border-b">
+          {cobro.fechaPago ? new Date(cobro.fechaPago).toLocaleDateString() : 'Sin fecha'}
+        </td>
+        <td className="px-4 py-2 text-sm text-gray-600 border-b">
           <button
             className="text-red-500 hover:text-red-700"
             onClick={() => handleDeleteCobro(cobro._id)}
@@ -332,7 +376,6 @@ const handleRangeChange = (range) => {
     ))}
   </tbody>
 </table>
-
 
           {/* Controles de paginación */}
 
@@ -363,106 +406,163 @@ const handleRangeChange = (range) => {
         <p className="text-gray-600">No hay cobros registrados.</p>
       )}
   
-      {/* Modal para añadir un nuevo cobro */}
-      {showForm && (
-        <div className="modal-overlay fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-          <div className="modal-content bg-white rounded-lg shadow-lg w-96 p-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">Agregar Cobro</h3>
-            
-<select
-  name="colaboradorId"
-  value={newCobro.colaboradorId}
-  onChange={handleChange}
-  className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
->
-  <option value="">Seleccionar Colaborador</option>
-  {colaboradores.map((colaborador) => (
-    <option key={colaborador._id} value={colaborador._id}>
-      {colaborador.nombre} - Venta Total : S/ {colaborador.deudaPendiente?.toFixed(2) || '0.00'}
-    </option>
-  ))}
-</select>
-            
-{/* Campo para Yape */}
-<div className="mb-4">
-  <label htmlFor="yape" className="block text-sm font-medium text-gray-700">
-    Yape (Método de pago móvil)
-  </label>
-  <input
-    type="number"
-    name="yape"
-    id="yape"
-    placeholder="Monto transferido via Yape"
-    value={newCobro.yape || 0}
-    onChange={handleChange}
-    className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-  />
-  <p className="text-xs text-gray-500 mt-1">Por favor ingrese el monto transferido usando Yape.</p>
-</div>
 
-{/* Campo para Efectivo */}
-<div className="mb-4">
-  <label htmlFor="efectivo" className="block text-sm font-medium text-gray-700">
-    Efectivo (Pago en efectivo)
-  </label>
-  <input
-    type="number"
-    name="efectivo"
-    id="efectivo"
-    placeholder="Monto recibido en efectivo"
-    value={newCobro.efectivo || 0}
-    onChange={handleChange}
-    className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-  />
-  <p className="text-xs text-gray-500 mt-1">Por favor ingrese el monto pagado en efectivo.</p>
-</div>
+    <div className="list">
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Control de Efectivo </h2>
+      
+      {/* Aquí puedes agregar el componente DeudasPendientes */}
+      <DeudasPendientes />
 
-{/* Campo para Gastos Imprevistos */}
-<div className="mb-4">
-  <label htmlFor="gastosImprevistos" className="block text-sm font-medium text-gray-700">
-    Gastos Imprevistos (Costos adicionales)
-  </label>
-  <input
-    type="number"
-    name="gastosImprevistos"
-    id="gastosImprevistos"
-    placeholder="Monto de gastos imprevistos"
-    value={newCobro.gastosImprevistos || 0}
-    onChange={handleChange}
-    className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-  />
-  <p className="text-xs text-gray-500 mt-1">Ingrese cualquier gasto adicional no planeado (por ejemplo, gastos inesperados).</p>
-</div>
+      {/* El resto de tu código para la lista de cobros */}
+    </div>
+    
+    
+{/* Modal para añadir un nuevo cobro */}
+{showForm && (
+  <div className="modal-overlay fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+    <div className="modal-content bg-white rounded-lg shadow-lg w-96 p-6">
+      <h3 className="text-xl font-semibold text-gray-800 mb-4">Agregar Cobro</h3>
 
+      {/* Select Colaborador con deuda pendiente */}
+      <div className="mb-4">
+        <label htmlFor="colaboradorId" className="block text-sm font-medium text-gray-700">
+          Seleccionar Colaborador con Deuda Pendiente
+        </label>
+        {colaboradores.length > 0 ? (
+          <select
+            name="colaboradorId"
+            id="colaboradorId"
+            value={newCobro.colaboradorId}
+            onChange={handleChange}
+            className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="">Seleccione un colaborador</option>
+            {colaboradores
+              .filter(colaborador => colaborador.deudaPendiente > 0)
+              .map((colaborador) => (
+                <option 
+                  key={colaborador._id} 
+                  value={colaborador._id}
+                  className="py-2"
+                >
+                  {colaborador.nombre} - Deuda: S/ {colaborador.deudaPendiente.toFixed(2)}
+                </option>
+            ))}
+          </select>
+        ) : (
+          <div className="mt-2 p-4 bg-gray-50 rounded-md">
+            <p className="text-gray-600 text-center">No hay colaboradores con deudas pendientes</p>
+          </div>
+        )}
+      </div>
 
-
+      {newCobro.colaboradorId && (
+        <>
+          {/* Campo para Fecha de Pago */}
+          <div className="mb-4">
+            <label htmlFor="fechaPago" className="block text-sm font-medium text-gray-700">
+              Fecha del Cobro
+            </label>
             <input
-              type="number"
-              name="montoPagado"
-              placeholder="Monto Pagado"
-              value={newCobro.montoPagado}
+              type="date"
+              id="fechaPago"
+              name="fechaPago"
+              value={newCobro.fechaPago}
               onChange={handleChange}
-              className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
-            
+          </div>
 
-            <div className="flex justify-end space-x-2">
-              <button 
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                onClick={handleAddCobro}
-              >
-                Agregar Cobro
-              </button>
-              <button 
-                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-                onClick={toggleFormVisibility}
-              >
-                Cancelar
-              </button>
+          {/* Campos de pago */}
+          <div className="space-y-4">
+            {/* Campo para Yape */}
+            <div className="mb-4">
+              <label htmlFor="yape" className="block text-sm font-medium text-gray-700">
+                Yape
+              </label>
+              <input
+                type="number"
+                name="yape"
+                id="yape"
+                placeholder="Monto transferido via Yape"
+                value={newCobro.yape || 0}
+                onChange={handleChange}
+                min="0"
+                className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+
+            {/* Campo para Efectivo */}
+            <div className="mb-4">
+              <label htmlFor="efectivo" className="block text-sm font-medium text-gray-700">
+                Efectivo
+              </label>
+              <input
+                type="number"
+                name="efectivo"
+                id="efectivo"
+                placeholder="Monto en efectivo"
+                value={newCobro.efectivo || 0}
+                onChange={handleChange}
+                min="0"
+                className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+
+            {/* Campo para Gastos Imprevistos */}
+            <div className="mb-4">
+              <label htmlFor="gastosImprevistos" className="block text-sm font-medium text-gray-700">
+                Gastos Imprevistos
+              </label>
+              <input
+                type="number"
+                name="gastosImprevistos"
+                id="gastosImprevistos"
+                placeholder="Gastos adicionales"
+                value={newCobro.gastosImprevistos || 0}
+                onChange={handleChange}
+                min="0"
+                className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+
+            {/* Total Pagado (calculado automáticamente) */}
+            <div className="mt-4 p-3 bg-gray-50 rounded-md">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-700">Total a Pagar:</span>
+                <span className="text-lg font-bold text-gray-900">
+                  S/ {newCobro.montoPagado.toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
+
+      {/* Botones de acción */}
+      <div className="flex justify-end space-x-2 mt-6">
+        <button
+          className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+          onClick={toggleFormVisibility}
+        >
+          Cancelar
+        </button>
+        <button
+          className={`px-4 py-2 rounded-md text-white ${
+            newCobro.colaboradorId && newCobro.montoPagado > 0
+              ? 'bg-blue-500 hover:bg-blue-600'
+              : 'bg-gray-400 cursor-not-allowed'
+          }`}
+          onClick={handleAddCobro}
+          disabled={!newCobro.colaboradorId || newCobro.montoPagado <= 0}
+        >
+          Agregar Cobro
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }

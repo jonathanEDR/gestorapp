@@ -48,8 +48,7 @@ const CollectionsOverTimeChart = ({ cobros, selectedRange }) => {
 
   const cobrosConFechasValidas = cobros.map(cobro => ({
     ...cobro,
-    fechaCobro: parseDate(cobro.createdAt),
-    // Eliminar el cálculo de montoTotal aquí ya que lo calcularemos por separado
+    fechaCobro: parseDate(cobro.fechaPago),
     yape: parseFloat(cobro.yape || 0),
     efectivo: parseFloat(cobro.efectivo || 0),
     gastosImprevistos: parseFloat(cobro.gastosImprevistos || 0)

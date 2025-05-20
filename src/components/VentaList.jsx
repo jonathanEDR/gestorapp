@@ -139,17 +139,6 @@ useEffect(() => {
     }));
   };
 
-  // Función para manejar la selección del estado de pago
-  const handleEstadoPagoChange = (e) => {
-    const estadoPago = e.target.value;
-    setVentaData((prevState) => ({
-      ...prevState,
-      estadoPago,
-      cantidadPagada:
-        estadoPago === 'Parcial' ? prevState.cantidadPagada :
-        estadoPago === 'Pagado' ? prevState.montoTotal : 0,
-    }));
-  };
 
   // Validación de la venta
   const validateVenta = () => {
@@ -229,42 +218,41 @@ useEffect(() => {
   };
 
   // Función para eliminar una venta
-  const handleDeleteVenta = async () => {
-      // Verificar si la venta tiene devoluciones
-  const devolucionesVenta = devoluciones.filter(d => d.ventaId._id === ventaData.currentVentaId);
+const handleDeleteVenta = async (ventaId) => {
+  // Verificar si la venta tiene devoluciones
+  const devolucionesVenta = devoluciones.filter(d => d.ventaId._id === ventaId);
   if (devolucionesVenta.length > 0) {
     alert('No se puede eliminar una venta que tiene devoluciones asociadas');
     return;
   }
-    if (!window.confirm('¿Estás seguro de que deseas eliminar esta venta?')) {
+  if (!window.confirm('¿Estás seguro de que deseas eliminar esta venta?')) {
+    return;
+  }
+
+  try {
+    const token = await getToken();
+    if (!token) {
+      alert('No estás autorizado');
       return;
     }
 
-    try {
-      const token = await getToken();
-      if (!token) {
-        alert('No estás autorizado');
-        return;
-      }
-
-      await api.delete(
-        `/ventas/${ventaData.currentVentaId}`, 
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
-      
-      // Importante: Recargar los datos desde el servidor
-      await loadVentas(token);
-      resetForm();
-      alert('Venta eliminada exitosamente');
-    } catch (error) {
-      console.error('Error al eliminar la venta:', error);
-      alert('Error al eliminar la venta: ' + (error.response ? error.response.data.message : error.message));
-    }
-  };
+    await api.delete(
+      `/ventas/${ventaId}`, 
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+    
+    await loadVentas(token);
+    alert('Venta eliminada exitosamente');
+  } catch (error) {
+    console.error('Error al eliminar la venta:', error);
+    alert('Error al eliminar la venta: ' + (error.response ? error.response.data.message : error.message));
+  }
+};
 
   // Función para reiniciar el formulario
   const resetForm = () => {
     setVentaData({
+      fechadeVenta: '', 
       colaboradorId: '',
       productoId: '',
       cantidad: 0,
@@ -279,43 +267,22 @@ useEffect(() => {
     setCantidadDisponible(0);
   };
 
-  // Función para manejar la edición de una venta
-  const handleEditVenta = (venta) => {
-      // Verificar si la venta tiene devoluciones
-  const devolucionesVenta = devoluciones.filter(d => d.ventaId._id === venta._id);
-  if (devolucionesVenta.length > 0) {
-    alert('No se puede editar una venta que tiene devoluciones asociadas');
-    return;
-  }
-
-    setVentaData({
-      colaboradorId: venta.colaboradorId._id,
-      productoId: venta.productoId._id,
-      cantidad: venta.cantidad,
-      montoTotal: venta.montoTotal,
-      estadoPago: venta.estadoPago,
-      cantidadPagada: venta.cantidadPagada,
-      editing: true,
-      currentVentaId: venta._id,
-      showForm: true,
-    });
-
-    const producto = productos.find((prod) => prod._id === venta.productoId._id);
-    setProductoPrecio(producto ? producto.precio : 0);
-    setCantidadDisponible(producto ? producto.cantidadRestante : 0);
-  };
 
   // Alternar visibilidad del formulario
-  const toggleFormVisibility = () => {
-    setVentaData((prevState) => ({
-      ...prevState,
-      showForm: !prevState.showForm,
+const toggleFormVisibility = () => {
+  if (!ventaData.showForm) {
+    // Abrir formulario y setear fecha actual
+    setVentaData((prev) => ({
+      ...prev,
+      showForm: true,
+      fechadeVenta: getFechaActualString(),
     }));
-    
-    if (!ventaData.showForm && ventaData.editing) {
-      resetForm();
-    }
-  };
+  } else {
+    // Cerrar formulario y limpiar
+    resetForm();
+  }
+};
+
 
     // Cambiar el rango de tiempo
   const handleRangeChange = (range) => {
@@ -443,6 +410,14 @@ const handleEliminarDevolucion = async (devolucionId) => {
   }
 };
 
+const getFechaActualString = () => {
+  const hoy = new Date();
+  const year = hoy.getFullYear();
+  const month = String(hoy.getMonth() + 1).padStart(2, '0');
+  const day = String(hoy.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 
 
   // Renderizado condicional para estados de carga y error
@@ -530,7 +505,8 @@ const handleEliminarDevolucion = async (devolucionId) => {
       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Total</th>
       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Devoluciones</th>
       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Devuelto</th>
-      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Estado de Pago</th>
+
+<th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Fecha de Venta</th>
       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Acciones</th>
     </tr>
   </thead>
@@ -557,25 +533,35 @@ const handleEliminarDevolucion = async (devolucionId) => {
               {cantidadTotalDevuelta > 0 ? cantidadTotalDevuelta : '0'}
             </td>
             <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {montoTotalDevuelto.toFixed(2)}</td>
-            <td className="px-4 py-2 text-sm text-gray-600 border-b">{venta.estadoPago}</td>
-            <td className="px-4 py-2 text-sm text-gray-600 border-b flex space-x-2">
-              {!tieneDevolucion && (
-                <button
-                  onClick={() => handleEditVenta(venta)}
-                  className="text-blue-500 hover:text-blue-700"
-                >
-                  Editar
-                </button>
-              )}
-              {venta.cantidad - cantidadTotalDevuelta > 0 && (
-                <button
-                  onClick={() => abrirModalDevolucion(venta)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  Devolver
-                </button>
-              )}
-            </td>
+
+<td className="px-4 py-2 text-sm text-gray-600 border-b">
+  {new Date(venta.fechadeVenta).toLocaleDateString('es-PE', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })}
+</td>
+
+<td className="px-4 py-2 text-sm text-gray-600 border-b flex space-x-2">
+  {venta.cantidad - cantidadTotalDevuelta > 0 && (
+    <>
+      <button
+        onClick={() => abrirModalDevolucion(venta)}
+        className="text-blue-500 hover:text-blue-700"
+      >
+        Devolver
+      </button>
+      {!tieneDevolucion && (
+        <button
+          onClick={() => handleDeleteVenta(venta._id)}
+          className="text-red-500 hover:text-red-700"
+        >
+          Eliminar
+        </button>
+      )}
+    </>
+  )}
+</td>
           </tr>
         );
       })
@@ -680,6 +666,15 @@ const handleEliminarDevolucion = async (devolucionId) => {
           <div className="modal-content bg-white rounded-lg shadow-lg w-96 p-6">
             <h3 className="text-xl font-semibold text-gray-800 mb-4">{ventaData.editing ? 'Editar Venta' : 'Agregar Venta'}</h3>
             
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Venta</label>
+  <input
+    type="date"
+    value={ventaData.fechadeVenta}
+    onChange={(e) => setVentaData({ ...ventaData, fechadeVenta: e.target.value })}
+    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+  />
+</div>
             {/* Colaborador Select */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Colaborador</label>
@@ -777,30 +772,23 @@ const handleEliminarDevolucion = async (devolucionId) => {
             )}
 
             {/* Botones de acción */}
-            <div className="modal-buttons flex justify-end space-x-2 mt-6">
-              {ventaData.editing && (
-                <button
-                  onClick={handleDeleteVenta}
-                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-                >
-                  Eliminar
-                </button>
-              )}
-              <button
-                onClick={handleAddOrEditVenta}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                disabled={!ventaData.colaboradorId || !ventaData.productoId || ventaData.cantidad <= 0}
-              >
-                {ventaData.editing ? 'Actualizar' : 'Agregar'}
-              </button>
-              <button
-                onClick={toggleFormVisibility}
-                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-              >
-                Cancelar
-              </button>
+<div className="modal-buttons flex justify-end space-x-2 mt-6">
+  <button
+    onClick={handleAddOrEditVenta}
+    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+    disabled={!ventaData.colaboradorId || !ventaData.productoId || ventaData.cantidad <= 0}
+  >
+    Agregar
+  </button>
+  <button
+    onClick={toggleFormVisibility}
+    className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+  >
+    Cancelar
+  </button>
+</div>
 
-          </div>
+
         </div>
       </div>
     )}
