@@ -1,9 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
 import { useAuth } from '@clerk/clerk-react';
+import ProductSalesAnalysisChart from './graphics/ProductSalesAnalysisChart';
+
 
 function ColaboradorList() {
-  const [colaboradores, setColaboradores] = useState([]);
+const [colaboradores, setColaboradores] = useState([]);
+const [ventas, setVentas] = useState([]); // Inicializamos ventas como un arreglo vacío
+  const [cobros, setCobros] = useState([]); // Añadir este estado
+const [productos, setProductos] = useState([]);
+
   const [newColaborador, setNewColaborador] = useState({
     nombre: '',
     email: '',
@@ -14,6 +20,8 @@ function ColaboradorList() {
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+const [selectedRange, setSelectedRange] = useState('day'); // Cambiado de 'semana' a 'day'
+
 
   const { isLoaded, isSignedIn, getToken } = useAuth();
 
@@ -40,9 +48,17 @@ function ColaboradorList() {
     }
   }, [isLoaded, isSignedIn, getToken]);
 
+
+
+
+
   useEffect(() => {
     fetchColaboradores();
-  }, [fetchColaboradores]);
+
+  }, [fetchColaboradores ]);
+
+
+
 
   const handleDeleteColaborador = async (id) => {
     try {
@@ -152,15 +168,62 @@ function ColaboradorList() {
     }
   };
 
+const fetchProductos = useCallback(async () => {
+  try {
+    const token = await getToken();
+    if (!token) return;
+    
+    const response = await api.get('/productos', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    setProductos(response.data);
+  } catch (error) {
+    console.error('Error al cargar productos:', error);
+  }
+}, [getToken]);
+
+// Modifica el fetchVentas para extraer solo el array de ventas
+const fetchVentas = useCallback(async () => {
+  try {
+    const token = await getToken();
+    const response = await api.get('/ventas', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    console.log('Ventas obtenidas:', response.data);
+    // Extraer solo el array de ventas
+    setVentas(response.data.ventas || []);
+  } catch (error) {
+    console.error('Error al cargar ventas:', error);
+    setVentas([]);
+  }
+}, [getToken]);
+// Actualizar useEffect para cargar ventas
+useEffect(() => {
+  fetchProductos();
+  fetchVentas();
+}, [fetchProductos, fetchVentas]);
+
+
+const handleRangeChange = (newRange) => {
+  setSelectedRange(newRange);
+};
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Gestión de Colaboradores</h1>
-      
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
+
+
+{/* Agregar el nuevo gráfico */}
+<div className="mb-8">
+<ProductSalesAnalysisChart 
+  ventas={ventas} // Asegúrate que ventas tenga productoId.nombre
+  selectedRange={selectedRange}
+  onRangeChange={handleRangeChange}
+/>
+
+</div>
 
       <button 
         onClick={toggleFormVisibility}

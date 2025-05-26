@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
-import VentasChart from './graphics/VentasChart'; // Importar el nuevo gráfico de ventas
+import SalesByCollaboratorChart from './graphics/SalesByCollaboratorChart'; // Asegúrate de importar el componente
+import CollectionsByCollaboratorChart from './graphics/CollectionsByCollaboratorChart'; 
+
+
 
 function Reportes() {
   const { getToken } = useAuth();
@@ -10,20 +13,72 @@ function Reportes() {
   const [cobros, setCobros] = useState([]);
   const [pagosPorColaborador, setPagosPorColaborador] = useState({});
   const [expandedColaborador, setExpandedColaborador] = useState(null);
-  
   const [totalVentasPorColaborador, setTotalVentasPorColaborador] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Nuevo estado para controlar qué vista mostrar
-  const [activeView, setActiveView] = useState('ventas'); // 'ventas' o 'productos'
-
-  // Estados para la paginación local (frontend) de ventas
+  const [activeView, setActiveView] = useState('ventas'); 
   const [currentPageVentas, setCurrentPageVentas] = useState(1);
   const [itemsPerPageVentas] = useState(10);
   const [pagosPaginacion, setPagosPaginacion] = useState({});
   const [currentPageProductos, setCurrentPageProductos] = useState(1);
   const [itemsPerPageProductos] = useState(10);
+
+  const [selectedRange, setSelectedRange] = useState('semana'); // Estado para gestionar el rango de tiempo seleccionado
+
+
+  // Función para obtener ventas
+const fetchVentas = useCallback(async () => {
+  try {
+    const token = await getToken();
+    const response = await api.get('/ventas', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    console.log(response.data); // Ver los datos que recibimos de la API
+
+    // Acceder a la propiedad 'ventas' y verificar que es un arreglo
+    if (Array.isArray(response.data.ventas)) {
+      setVentas(response.data.ventas); // Guardar solo los datos de ventas en el estado
+    } else {
+      console.error('Los datos de ventas no son un arreglo');
+      setVentas([]); // Asignar un arreglo vacío en caso de que no sea un arreglo
+    }
+  } catch (error) {
+    console.error('Error al obtener ventas:', error);
+    setVentas([]); // Asignar un arreglo vacío en caso de error
+  }
+}, [getToken]);
+
+
+// Añadir después de fetchVentas
+const fetchCobros = useCallback(async () => {
+  try {
+    const token = await getToken();
+    const response = await api.get('/cobros', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    console.log('Cobros recibidos:', response.data); // Para debugging
+
+    if (Array.isArray(response.data.cobros)) {
+      setCobros(response.data.cobros);
+    } else {
+      console.error('Los datos de cobros no son un arreglo');
+      setCobros([]);
+    }
+  } catch (error) {
+    console.error('Error al obtener cobros:', error);
+    setCobros([]);
+  }
+}, [getToken]);
+
+
+
+  useEffect(() => {
+    fetchVentas(); // Llamamos a la función para obtener las ventas
+    fetchCobros(); // Llamamos a la función para obtener los cobros
+
+  }, [fetchVentas, fetchCobros]);
 
   // Funciones para la paginación local de ventas
   const goToNextPageVentas = () => {
@@ -271,6 +326,28 @@ const totalPagesProductos = Math.ceil(productos.length / itemsPerPageProductos);
   };
 
 
+
+
+
+
+
+
+
+
+
+  
+  // Manejar el cambio en el rango de tiempo
+  const handleRangeChange = (event) => {
+    setSelectedRange(event.target.value);
+  };
+
+// Asegúrate de que las ventas incluyan la información del colaborador
+const ventasConColaborador = ventas.map(venta => ({
+  ...venta,
+  colaborador: venta.colaboradorId?.nombre || 'Sin Asignar'
+}));
+
+
   // Renderizar datos de carga o error
   if (isLoading) {
     return (
@@ -355,8 +432,23 @@ const totalPagesProductos = Math.ceil(productos.length / itemsPerPageProductos);
           
           {/* Gráfico de ventas */}
           <div className="mb-8">
-            <VentasChart ventas={ventas} />
-          </div>
+
+      <select 
+        id="timeRange" 
+        value={selectedRange}
+        onChange={handleRangeChange}
+        className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+      >
+        <option value="week">Esta Semana</option>
+        <option value="month">Este Mes</option>
+        <option value="year">Este Año</option>
+        <option value="historical">Histórico</option>
+      </select>
+              <SalesByCollaboratorChart
+        ventas={ventasConColaborador}
+        selectedRange={selectedRange}
+        />
+                  </div>
           
           <div className="overflow-x-auto">
             <table className="min-w-full table-auto border-collapse border border-gray-300">
@@ -407,6 +499,8 @@ const totalPagesProductos = Math.ceil(productos.length / itemsPerPageProductos);
           </div>
         </div>
       )}
+
+
 
       {/* Vista condicional - Productos */}
 {activeView === 'productos' && (
@@ -468,8 +562,25 @@ const totalPagesProductos = Math.ceil(productos.length / itemsPerPageProductos);
   </div>
 )}
 
+
+
+
       {activeView === 'cobros' && (      <div className="report-section mb-6">
       <h3 className="text-xl font-semibold text-gray-700 mb-4">Reporte de Pagos</h3>
+              
+              <div className="mb-8">
+  {cobros.length > 0 ? (
+    <CollectionsByCollaboratorChart 
+      cobros={cobros} 
+      selectedRange={selectedRange} 
+    />
+  ) : (
+    <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
+      <p className="text-lg text-gray-500">No hay datos de cobros disponibles</p>
+    </div>
+  )}
+</div>
+              
               <div className="overflow-x-auto">
                 <table className="min-w-full table-auto border-collapse border border-gray-300">
                   <thead className="bg-gray-100">

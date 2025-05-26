@@ -5,12 +5,18 @@ import CollectionsOverTimeChart from './graphics/CollectionsOverTimeChart';
 import DeudasPendientes from './tablas/DeudasPendientes'; // Ajusta la ruta si es necesario
 
 
+// Modificar esta función para incluir la hora
 const getFechaActualString = () => {
   const hoy = new Date();
   const year = hoy.getFullYear();
   const month = String(hoy.getMonth() + 1).padStart(2, '0');
   const day = String(hoy.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const hours = String(hoy.getHours()).padStart(2, '0');
+  const minutes = String(hoy.getMinutes()).padStart(2, '0');
+  const seconds = String(hoy.getSeconds()).padStart(2, '0');
+  
+  // Formato: YYYY-MM-DDTHH:MM:SS
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 };
 
 
@@ -28,13 +34,9 @@ function CobroList() {
 });
   const [colaboradores, setColaboradores] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  
-  // Estados para la paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
-
-  
   const [selectedRange, setSelectedRange] = useState('month');
 
 
@@ -143,55 +145,54 @@ const handleChange = (e) => {
 
 
 const handleAddCobro = async () => {
+  // Validar que todos los campos necesarios estén llenos
   if (!newCobro.colaboradorId || Number(newCobro.montoPagado) <= 0) {
     alert('Por favor, completa todos los campos correctamente.');
     return;
   }
 
   try {
+    // Obtener el token de autenticación
     const token = await getToken();
     if (!token) {
       alert('No estás autorizado');
       return;
     }
 
+    // Obtener la deuda pendiente del colaborador
     const response = await api.get(`/cobros/debtInfo/${newCobro.colaboradorId}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
     const deudaPendiente = response.data.remainingDebt;
 
+    // Validar que el monto pagado no exceda la deuda pendiente
     if (Number(newCobro.montoPagado) > deudaPendiente) {
       alert(`El monto pagado no puede exceder la deuda pendiente de ${deudaPendiente}`);
       return;
     }
 
+    // Determinar el estado de pago
     const estadoPago = Number(newCobro.montoPagado) === deudaPendiente ? 'total' : 'parcial';
 
-    // Crear el objeto de fecha correctamente
-    let fechaSeleccionada = null;
-    if (newCobro.fechaPago) {
-      // Asegurarse de que la fecha se cree correctamente
-      const [year, month, day] = newCobro.fechaPago.split('-');
-      fechaSeleccionada = new Date(year, month - 1, day);
-      // No ajustamos la zona horaria aquí
-    }
-
+    // Enviar los datos del cobro sin modificar la fecha, ya que la fecha será gestionada en el backend
     const cobroData = {
       ...newCobro,
-      fechaPago: fechaSeleccionada ? fechaSeleccionada.toISOString().split('T')[0] : null,
+      fechaPago: newCobro.fechaPago, // Mantener la fecha tal como está, sin modificaciones
       montoPagado: Number(newCobro.montoPagado),
       estadoPago
     };
 
     console.log('Fecha que se está enviando:', cobroData.fechaPago); // Para debugging
 
+    // Enviar los datos del cobro al backend
     const responseCobro = await api.post('/cobros', cobroData, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
+    // Si la creación del cobro fue exitosa, actualizar la UI
     if (responseCobro?.data) {
-      fetchCobros(1); // Esto sigue siendo necesario para actualizar la lista de cobros
+      fetchCobros(1); // Actualizar la lista de cobros
       setCurrentPage(1);
       setNewCobro({
         colaboradorId: '',
@@ -200,7 +201,7 @@ const handleAddCobro = async () => {
         yape: 0,
         efectivo: 0,
         gastosImprevistos: 0,
-        fechaPago: getFechaActualString()
+        fechaPago: getFechaActualString(),// Restablecer la fecha de pago
       });
       setShowForm(false); // Cerrar el formulario
       alert('Cobro agregado exitosamente');
@@ -210,6 +211,7 @@ const handleAddCobro = async () => {
     alert('Error al verificar deuda pendiente');
   }
 };
+
 
 
   const handleDeleteCobro = async (id) => {
@@ -361,9 +363,16 @@ const handleRangeChange = (range) => {
             <span className="text-blue-500 font-semibold">parcial</span>
           )}
         </td>
-        <td className="px-4 py-2 text-sm text-gray-600 border-b">
-          {cobro.fechaPago ? new Date(cobro.fechaPago).toLocaleDateString() : 'Sin fecha'}
-        </td>
+<td className="px-4 py-2 text-sm text-gray-600 border-b">
+  {cobro.fechaPago 
+    ? new Date(cobro.fechaPago).toLocaleString('es-PE', { 
+        weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit', 
+        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+      }) 
+    : 'Sin fecha'}
+</td>
+
+
         <td className="px-4 py-2 text-sm text-gray-600 border-b">
           <button
             className="text-red-500 hover:text-red-700"
@@ -458,20 +467,26 @@ const handleRangeChange = (range) => {
 
       {newCobro.colaboradorId && (
         <>
-          {/* Campo para Fecha de Pago */}
-          <div className="mb-4">
-            <label htmlFor="fechaPago" className="block text-sm font-medium text-gray-700">
-              Fecha del Cobro
-            </label>
-            <input
-              type="date"
-              id="fechaPago"
-              name="fechaPago"
-              value={newCobro.fechaPago}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-          </div>
+       {/* Campo para Fecha de Pago */}
+<div className="mb-4">
+  <label htmlFor="fechaPago" className="block text-sm font-medium text-gray-700">
+    Fecha del Cobro
+  </label>
+<input
+  type="datetime-local"
+  id="fechaPago"
+  name="fechaPago"
+  value={newCobro.fechaPago}  // Se mantiene la fecha y la hora
+  onChange={(e) => {
+    setNewCobro({
+      ...newCobro,
+      fechaPago: e.target.value, // Se actualiza la fecha y hora
+    });
+  }}
+  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+/>
+
+</div>
 
           {/* Campos de pago */}
           <div className="space-y-4">

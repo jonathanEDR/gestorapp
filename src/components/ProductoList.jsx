@@ -322,6 +322,8 @@ const fetchProductos = useCallback(async () => {
     <thead>
       <tr>
         <th className="px-6 py-2 border-b text-left">Nombre</th>
+        <th className="px-6 py-2 border-b text-left">Cantidad</th>
+        <th className="px-6 py-2 border-b text-left">Cantidad Vendida</th>
         <th className="px-6 py-2 border-b text-left">Costo</th>
         <th className="px-6 py-2 border-b text-left">Precio</th>
         <th className="px-6 py-2 border-b text-left">Fecha de Agotamiento</th>
@@ -331,6 +333,8 @@ const fetchProductos = useCallback(async () => {
       {productosTerminadosPorPagina.map((producto) => (
         <tr key={producto._id} className="hover:bg-gray-100">
           <td className="px-6 py-3 border-b">{producto.nombre}</td>
+          <td className="px-6 py-3 border-b">{producto.cantidad}</td>
+          <td className="px-6 py-3 border-b">{producto.cantidadVendida}</td>
           <td className="px-6 py-3 border-b">S/ {producto.precioCompra}</td>
           <td className="px-6 py-3 border-b">S/ {producto.precio}</td>
           <td className="px-6 py-3 border-b">{producto.fechaAgotamiento}</td>
