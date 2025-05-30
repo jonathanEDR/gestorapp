@@ -3,6 +3,7 @@ import { useAuth } from '@clerk/clerk-react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
 import SalesByCollaboratorChart from './graphics/SalesByCollaboratorChart'; // Asegúrate de importar el componente
 import CollectionsByCollaboratorChart from './graphics/CollectionsByCollaboratorChart'; 
+import ProductSalesAnalysisChart from './graphics/ProductSalesAnalysisChart';
 
 
 
@@ -337,10 +338,23 @@ const totalPagesProductos = Math.ceil(productos.length / itemsPerPageProductos);
 
   
   // Manejar el cambio en el rango de tiempo
-  const handleRangeChange = (event) => {
-    setSelectedRange(event.target.value);
-  };
-
+const handleRangeChange = (eventOrValue) => {
+  try {
+    // Si es un evento del selector (select element)
+    if (eventOrValue?.target?.value) {
+      setSelectedRange(eventOrValue.target.value);
+    } 
+    // Si es un valor directo del componente
+    else if (typeof eventOrValue === 'string') {
+      setSelectedRange(eventOrValue);
+    }
+    // Para debugging
+    console.log('Nuevo rango seleccionado:', eventOrValue?.target?.value || eventOrValue);
+  } catch (error) {
+    console.error('Error en handleRangeChange:', error);
+  }
+};
+  
 // Asegúrate de que las ventas incluyan la información del colaborador
 const ventasConColaborador = ventas.map(venta => ({
   ...venta,
@@ -506,6 +520,18 @@ const ventasConColaborador = ventas.map(venta => ({
 {activeView === 'productos' && (
   <div className="report-section mb-6">
     <h3 className="text-xl font-semibold text-gray-700 mb-4">Reporte de Inventario</h3>
+   
+
+   {/* Agregar el nuevo gráfico */}
+<div className="mb-8">
+<ProductSalesAnalysisChart 
+  ventas={ventas} // Asegúrate que ventas tenga productoId.nombre
+  selectedRange={selectedRange}
+  onRangeChange={handleRangeChange}
+/>  
+
+</div>
+   
     <div className="overflow-x-auto">
       <table className="min-w-full table-auto border-collapse border border-gray-300">
         <thead className="bg-gray-100">

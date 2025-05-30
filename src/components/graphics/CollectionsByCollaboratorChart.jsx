@@ -593,7 +593,7 @@ const getDateKey = (date, range) => {
         )}
 
 {/* Gráfico */}
-<div className="relative h-[300px] w-full mt-4 p-4">
+<div className="relative h-[00px] w-full mt-4 p-4">
   <Line 
     data={groupedData} 
     options={chartOptions} 

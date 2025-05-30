@@ -3,7 +3,21 @@ import api from '../services/api'; // Ajusta la ruta si es necesario
 import { useAuth } from '@clerk/clerk-react';
 import SalesOverTimeChart from './graphics/SalesOverTimeChart';
 
+
+
+
 function VentaList() {
+  const getFechaActualString = () => {
+    const hoy = new Date();
+    // Formatear fecha y hora al formato requerido por datetime-local
+    const año = hoy.getFullYear();
+    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+    const dia = String(hoy.getDate()).padStart(2, '0');
+    const hora = String(hoy.getHours()).padStart(2, '0');
+    const minutos = String(hoy.getMinutes()).padStart(2, '0');
+    
+    return `${año}-${mes}-${dia}T${hora}:${minutos}`;
+  };
   const { getToken } = useAuth();
   const [ventaData, setVentaData] = useState({
     colaboradorId: '',
@@ -32,7 +46,7 @@ function VentaList() {
   const [devolucionesCurrentPage] = useState(1);
   const [ventasLimit, setVentasLimit] = useState(20);
   const [devolucionesLimit, setDevolucionesLimit] = React.useState(20); // mostrar 10 inicialmente
-
+const [fechaDevolucion, setFechaDevolucion] = useState(getFechaActualString());
 
   
 const loadVentas = useCallback(async () => {
@@ -347,11 +361,12 @@ const toggleFormVisibility = () => {
     setCantidadDevuelta(0); // Reiniciar cantidad devuelta
     setMotivo(""); // Limpiar motivo
     setIsModalVisible(true); // Mostrar el modal
+    setFechaDevolucion(getFechaActualString()); // Reiniciar fecha de devolución
   };
 
   // Función para cerrar el modal de devolución
 const handleRegistrarDevolucion = async () => {
-  if (!selectedProducto || !cantidadDevuelta || !motivo) {
+  if (!selectedProducto || !cantidadDevuelta || !motivo || !fechaDevolucion) {
     alert("Por favor complete todos los campos");
     return;
   }
@@ -372,7 +387,8 @@ const handleRegistrarDevolucion = async () => {
       colaboradorId: selectedProducto.colaboradorId._id, // Importante: incluir el colaboradorId
       cantidadDevuelta: parseInt(cantidadDevuelta),
       montoDevolucion: parseFloat(montoDevolucion.toFixed(2)),
-      motivo
+      motivo,
+      fechaDevolucion: new Date(fechaDevolucion).toISOString() // Fecha actual en formato ISO
     };
 
     await api.post('/ventas/devoluciones', devolucionData, {
@@ -392,7 +408,7 @@ const handleRegistrarDevolucion = async () => {
     setSelectedProducto(null);
     setCantidadDevuelta(0);
     setMotivo("");
-
+    setFechaDevolucion(getFechaActualString());
   } catch (error) {
     console.error('Error al registrar la devolución:', error);
     alert(error.response?.data?.message || 'Error al registrar la devolución');
@@ -424,18 +440,15 @@ const handleEliminarDevolucion = async (devolucionId) => {
   }
 };
 
-// Modifica la función getFechaActualString
-const getFechaActualString = () => {
-  const hoy = new Date();
-  // Formatear fecha y hora al formato requerido por datetime-local
-  const año = hoy.getFullYear();
-  const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-  const dia = String(hoy.getDate()).padStart(2, '0');
-  const hora = String(hoy.getHours()).padStart(2, '0');
-  const minutos = String(hoy.getMinutes()).padStart(2, '0');
-  
-  return `${año}-${mes}-${dia}T${hora}:${minutos}`;
+// Agregar esto a la función que cierra el modal o crear una nueva
+const limpiarModal = () => {
+  setIsModalVisible(false);
+  setSelectedProducto(null);
+  setCantidadDevuelta(0);
+  setMotivo("");
+  setFechaDevolucion(getFechaActualString());
 };
+
 
 // Función para formatear la fecha de la venta
 const formatearFechaHora = (fecha) => {
@@ -648,14 +661,8 @@ const formatearFechaHora = (fecha) => {
                     {devolucion.ventaId?.colaboradorId?.nombre || 'N/A'}
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-600 border-b">
-                    {new Date(devolucion.createdAt).toLocaleDateString('es-ES', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </td>
+  {formatearFechaHora(devolucion.fechaDevolucion || devolucion.createdAt)}
+</td>
                   <td className="px-4 py-2 text-sm text-gray-600 border-b">
                     {devolucion.productoId?.nombre || 'N/A'}
                   </td>
@@ -844,6 +851,22 @@ const formatearFechaHora = (fecha) => {
               Producto: {selectedProducto.productoId?.nombre || selectedProducto.nombre}
             </label>
           </div>
+
+
+
+      {/* Nuevo campo de fecha */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Fecha de devolución:
+        </label>
+        <input
+          type="datetime-local"
+          value={fechaDevolucion}
+          onChange={(e) => setFechaDevolucion(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        />
+      </div>
+
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">

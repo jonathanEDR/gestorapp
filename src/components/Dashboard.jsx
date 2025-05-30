@@ -4,9 +4,12 @@ import VentaList from './VentaList';
 import CobroList from './CobroList';
 import ColaboradorList from './ColaboradorList';
 import Reportes from './Reportes';
-import Chatbot from './Chatbot';
+import GastoList from './GastoList';  
+import GestionPersonal from './GestionPersonal';
 import LogoutButton from './LogouButton';  // Asegúrate de que la ruta sea correcta
 import { useUser } from '@clerk/clerk-react';  // Importar el hook useUser de Clerk
+
+
 
 function Dashboard() {
   const { user } = useUser();  // Obtener el usuario autenticado desde Clerk
@@ -15,6 +18,8 @@ function Dashboard() {
   const [isSidebarVisible, setSidebarVisible] = useState(true);
   const [showChatbot, setShowChatbot] = useState(false);
 
+
+  
   const handleSectionChange = (section) => {
     setActiveSection(section);
   };
@@ -101,6 +106,25 @@ function Dashboard() {
               >
                 Colaboradores
               </button>
+
+              <button 
+                onClick={() => handleSectionChange('gastos')}
+                className={`w-full px-4 py-2 text-left rounded-lg transition-colors ${
+                  activeSection === 'gastos' ? 'bg-blue-500 text-white' : 'hover:bg-blue-500 hover:text-white'
+                }`}
+              >
+                Control de Gastos
+              </button>
+
+              <button 
+                onClick={() => handleSectionChange('gestionPersonal')}
+                className={`w-full px-4 py-2 text-left rounded-lg transition-colors ${
+                  activeSection === 'gestionPersonal' ? 'bg-blue-500 text-white' : 'hover:bg-blue-500 hover:text-white'
+                }`}
+              >
+                Gestión Personal
+              </button>
+
               <button 
                 onClick={() => handleSectionChange('reportes')}
                 className={`w-full px-4 py-2 text-left rounded-lg transition-colors ${
@@ -135,25 +159,13 @@ function Dashboard() {
               {activeSection === 'cobros' && <CobroList />}
               {activeSection === 'colaboradores' && <ColaboradorList />}
               {activeSection === 'reportes' && <Reportes />}
+              {activeSection === 'gastos' && <GastoList />}
+  {activeSection === 'gestionPersonal' && <GestionPersonal />}
+
             </div>
           </div>
         </main>
       </div>
-      
-      {/* Chatbot Window */}
-      {showChatbot && (
-        <div className="fixed bottom-24 right-4 w-80 h-96 bg-white rounded-lg shadow-xl z-40">
-          <Chatbot />
-        </div>
-      )}
-
-      {/* Chatbot Toggle Button */}
-      <button 
-        onClick={toggleChatbot}
-        className="fixed bottom-4 right-4 w-16 h-16 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 transition-colors z-50"
-      >
-        <span className="text-2xl">💬</span>
-      </button>
     </div>
   );
 }

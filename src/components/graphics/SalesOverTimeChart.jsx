@@ -277,7 +277,7 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
     // Agrupar devoluciones
     devoluciones.forEach((devolucion) => {
       const montoDevolucion = parseFloat(devolucion.montoDevolucion) || 0;
-      const date = new Date(devolucion.createdAt);
+      const date = new Date(devolucion.fechaDevolucion);
       const key = getGroupingFormat(date, selectedRange);
 
       if (key in groupedDevoluciones) {

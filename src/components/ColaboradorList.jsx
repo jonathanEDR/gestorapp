@@ -1,26 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
 import { useAuth } from '@clerk/clerk-react';
-import ProductSalesAnalysisChart from './graphics/ProductSalesAnalysisChart';
 
 
 function ColaboradorList() {
 const [colaboradores, setColaboradores] = useState([]);
-const [ventas, setVentas] = useState([]); // Inicializamos ventas como un arreglo vacío
-  const [cobros, setCobros] = useState([]); // Añadir este estado
-const [productos, setProductos] = useState([]);
-
   const [newColaborador, setNewColaborador] = useState({
     nombre: '',
     email: '',
-    telefono: ''
+    telefono: '',
+    departamento: '',
+    sueldo: 0 // Sueldo inicial, puede ser 0 o se puede omitir
   });
   const [editing, setEditing] = useState(false);
   const [currentColaboradorId, setCurrentColaboradorId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-const [selectedRange, setSelectedRange] = useState('day'); // Cambiado de 'semana' a 'day'
+const departamentos = ['Producción', 'Ventas', 'Administración', 'Financiero'];
 
 
   const { isLoaded, isSignedIn, getToken } = useAuth();
@@ -101,7 +98,7 @@ const [selectedRange, setSelectedRange] = useState('day'); // Cambiado de 'seman
   };
 
   const handleAddOrEditColaborador = async () => {
-    if (!newColaborador.nombre || !newColaborador.email || !newColaborador.telefono) {
+    if (!newColaborador.nombre || !newColaborador.email || !newColaborador.telefono || !newColaborador.departamento || newColaborador.sueldo == null) {
       setError('Por favor, complete todos los campos.');
       return;
     }
@@ -123,7 +120,7 @@ const [selectedRange, setSelectedRange] = useState('day'); // Cambiado de 'seman
         
         setEditing(false);
         setCurrentColaboradorId(null);
-        setNewColaborador({ nombre: '', email: '', telefono: '' });
+        setNewColaborador({ nombre: '', email: '', telefono: '', departamento: '', sueldo: 0 });  
         setShowForm(false);
       } else {
         await api.post('/colaboradores', newColaborador, {
@@ -132,8 +129,8 @@ const [selectedRange, setSelectedRange] = useState('day'); // Cambiado de 'seman
         
         // En lugar de: setColaboradores([...colaboradores, response.data]);
         await fetchColaboradores(); // CAMBIO: Recargar la lista completa
-        
-        setNewColaborador({ nombre: '', email: '', telefono: '' });
+
+        setNewColaborador({ nombre: '', email: '', telefono: '', departamento: '', sueldo: 0 });
         setShowForm(false);
       }
     } catch (error) {
@@ -148,7 +145,9 @@ const [selectedRange, setSelectedRange] = useState('day'); // Cambiado de 'seman
     setNewColaborador({
       nombre: colaborador.nombre,
       email: colaborador.email,
-      telefono: colaborador.telefono
+      telefono: colaborador.telefono,
+      departamento: colaborador.departamento,
+      sueldo: colaborador.sueldo
     });
     setShowForm(true);
   };
@@ -156,7 +155,7 @@ const [selectedRange, setSelectedRange] = useState('day'); // Cambiado de 'seman
   const handleCancelEdit = () => {
     setEditing(false);
     setCurrentColaboradorId(null);
-    setNewColaborador({ nombre: '', email: '', telefono: '' });
+    setNewColaborador({ nombre: '', email: '', telefono: '', departamento: '', sueldo: 0 });
     setShowForm(false);
   };
 
@@ -168,63 +167,11 @@ const [selectedRange, setSelectedRange] = useState('day'); // Cambiado de 'seman
     }
   };
 
-const fetchProductos = useCallback(async () => {
-  try {
-    const token = await getToken();
-    if (!token) return;
-    
-    const response = await api.get('/productos', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    setProductos(response.data);
-  } catch (error) {
-    console.error('Error al cargar productos:', error);
-  }
-}, [getToken]);
 
-// Modifica el fetchVentas para extraer solo el array de ventas
-const fetchVentas = useCallback(async () => {
-  try {
-    const token = await getToken();
-    const response = await api.get('/ventas', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    console.log('Ventas obtenidas:', response.data);
-    // Extraer solo el array de ventas
-    setVentas(response.data.ventas || []);
-  } catch (error) {
-    console.error('Error al cargar ventas:', error);
-    setVentas([]);
-  }
-}, [getToken]);
-// Actualizar useEffect para cargar ventas
-useEffect(() => {
-  fetchProductos();
-  fetchVentas();
-}, [fetchProductos, fetchVentas]);
-
-
-const handleRangeChange = (newRange) => {
-  setSelectedRange(newRange);
-};
 
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Gestión de Colaboradores</h1>
-
-
-{/* Agregar el nuevo gráfico */}
-<div className="mb-8">
-<ProductSalesAnalysisChart 
-  ventas={ventas} // Asegúrate que ventas tenga productoId.nombre
-  selectedRange={selectedRange}
-  onRangeChange={handleRangeChange}
-/>
-
-</div>
-
       <button 
         onClick={toggleFormVisibility}
         className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4"
@@ -266,6 +213,37 @@ const handleRangeChange = (newRange) => {
         />
       </div>
 
+<div className="mb-4">
+  <label className="block text-gray-700 text-sm font-bold mb-2">
+    Departamento *
+  </label>
+  <select
+    name="departamento"
+    value={newColaborador.departamento}
+    onChange={(e) => setNewColaborador({ ...newColaborador, departamento: e.target.value })}
+    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+    required
+  >
+    <option value="">Seleccione un departamento</option>
+    {departamentos.map(dep => (
+      <option key={dep} value={dep}>{dep}</option>
+    ))}
+  </select>
+</div>
+
+<div className="mb-4">
+  <label className="block text-gray-700 text-sm font-bold mb-2">
+    Sueldo *
+  </label>
+  <input
+    type="number"
+    value={newColaborador.sueldo}
+    onChange={(e) => setNewColaborador({ ...newColaborador, sueldo: e.target.value })}
+    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+    required
+  />
+</div>
+
       {/* Botones del modal */}
       <div className="flex space-x-4 justify-end">
         <button
@@ -305,6 +283,8 @@ const handleRangeChange = (newRange) => {
                 <th className="py-2 px-4 border-b">Nombre</th>
                 <th className="py-2 px-4 border-b">Email</th>
                 <th className="py-2 px-4 border-b">Teléfono</th>
+                <th className="py-2 px-4 border-b">Departamento</th>
+                <th className="py-2 px-4 border-b">Sueldo</th>
                 <th className="py-2 px-4 border-b">Acciones</th>
               </tr>
             </thead>
@@ -316,6 +296,8 @@ const handleRangeChange = (newRange) => {
                     <td className="py-2 px-4 border-b">{colaborador.nombre}</td>
                     <td className="py-2 px-4 border-b">{colaborador.email}</td>
                     <td className="py-2 px-4 border-b">{colaborador.telefono}</td>
+                    <td className="py-2 px-4 border-b">{colaborador.departamento}</td>
+                    <td className="py-2 px-4 border-b">{colaborador.sueldo}</td>
                     <td className="py-2 px-4 border-b">
                       <button
                         onClick={() => handleEditColaborador(colaborador)}

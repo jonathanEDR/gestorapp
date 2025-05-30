@@ -131,4 +131,94 @@ export const sendMessageToChatbot = async (data) => {
   }
 };
 
+export const getGastos = async () => {
+  try {
+    const response = await api.get('/gastos');  // Usando la instancia api
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener gastos:', error);
+    throw error;
+  }
+};
+
+// Crear un nuevo gasto
+export const createGasto = async (gasto) => {
+  try {
+    const response = await api.post('/gastos', gasto);  // Usando la instancia api
+    return response.data;
+  } catch (error) {
+    console.error('Error al agregar gasto:', error);
+    throw error;
+  }
+};
+
+// Actualizar un gasto existente
+export const updateGasto = async (id, gasto) => {
+  try {
+    const response = await api.put(`/gastos/${id}`, gasto);  // Usando la instancia api
+    return response.data;
+  } catch (error) {
+    console.error('Error al actualizar gasto:', error);
+    throw error;
+  }
+};
+
+export const deleteGasto = async (id) => {
+  try {
+    const response = await api.delete(`/gastos/${id}`);  // Usando la instancia api
+    return response.data;
+  } catch (error) {
+    console.error('Error al eliminar gasto:', error);
+    throw error;
+  }
+};
+
+export const getGestionPersonal = async () => {
+  try {
+    const response = await api.get('/gestion-personal');  // Usando la instancia api
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener gestión personal:', error);
+    throw error;
+  }
+};
+
+export const createGestionPersonal = async (gestion) => {
+  try {
+    const response = await api.post('/gestion-personal', gestion);  // Usando la instancia api
+    return response.data;
+  } catch (error) {
+    console.error('Error al agregar gestión personal:', error);
+    throw error;
+  }
+};
+
+export const updateGestionPersonal = async (id, gestion) => {
+  try {
+    const response = await api.put(`/gestion-personal/${id}`, gestion);  // Usando la instancia api
+    return response.data;
+  } catch (error) {
+    console.error('Error al actualizar gestión personal:', error);
+    throw error;
+  }
+};
+
+export const deleteGestionPersonal = async (id) => {
+  try {
+    if (!id) {
+      throw new Error('ID es requerido para eliminar el registro');
+    }
+    
+    const response = await api.delete(`/gestion-personal/${id}`);
+    if (!response.data) {
+      throw new Error('No se recibió confirmación del servidor');
+    }
+    return response.data;
+  } catch (error) {
+    console.error('Error al eliminar gestión personal:', error);
+    throw error.response?.data || error;
+  }
+};
+
+
 export default api;
