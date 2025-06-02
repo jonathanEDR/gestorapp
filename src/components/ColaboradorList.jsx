@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
 import { useAuth } from '@clerk/clerk-react';
+import GestionPersonalChart from './graphics/GestiónPersonalChart';
+import GestionPersonal from './GestionPersonal';
 
 
 function ColaboradorList() {
@@ -18,9 +20,11 @@ const [colaboradores, setColaboradores] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 const departamentos = ['Producción', 'Ventas', 'Administración', 'Financiero'];
-
-
+const [registros, setRegistros] = useState([]); // Estado para los registros del gráfico
+  const [activeSection, setActiveSection] = useState('colaboradores'); // Agregar este estado
   const { isLoaded, isSignedIn, getToken } = useAuth();
+
+
 
   // Función para obtener colaboradores
   const fetchColaboradores = useCallback(async () => {
@@ -45,14 +49,29 @@ const departamentos = ['Producción', 'Ventas', 'Administración', 'Financiero']
     }
   }, [isLoaded, isSignedIn, getToken]);
 
+  // Agregar función para obtener registros
+  const fetchRegistros = useCallback(async () => {
+    if (!isLoaded || !isSignedIn) return;
+
+    try {
+      const token = await getToken();
+      const response = await api.get('/gestion-personal', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setRegistros(response.data);
+    } catch (error) {
+      console.error('Error al obtener registros:', error);
+    }
+  }, [isLoaded, isSignedIn, getToken]);
 
 
 
 
   useEffect(() => {
     fetchColaboradores();
+    fetchRegistros(); // Agregar esta línea
 
-  }, [fetchColaboradores ]);
+  }, [fetchColaboradores, fetchRegistros]);
 
 
 
@@ -167,17 +186,61 @@ const departamentos = ['Producción', 'Ventas', 'Administración', 'Financiero']
     }
   };
 
-
+// Agregar esta función después de toggleFormVisibility
+const handleSectionChange = (section) => {
+  setActiveSection(section);
+};
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Gestión de Colaboradores</h1>
-      <button 
-        onClick={toggleFormVisibility}
-        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4"
-      >
-        {showForm ? 'Cancelar' : (editing ? 'Editar Colaborador' : 'Agregar Colaborador')}
-      </button>
+ <div className="container mx-auto p-4">
+    <div className="flex justify-between items-center mb-6">
+      <h1 className="text-2xl font-bold">Gestión de Colaboradores</h1>
+      
+      <div className="flex gap-4">
+        <button 
+          onClick={() => handleSectionChange('colaboradores')}
+          className={`px-4 py-2 rounded-lg transition-colors ${
+            activeSection === 'colaboradores' ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-blue-500 hover:text-white'
+          }`}
+        >
+          Lista de Colaboradores
+        </button>
+        <button 
+          onClick={() => handleSectionChange('gestionPersonal')}
+          className={`px-4 py-2 rounded-lg transition-colors ${
+            activeSection === 'gestionPersonal' ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-blue-500 hover:text-white'
+          }`}
+        >
+          Gestión Personal
+        </button>
+      </div>
+    </div>
+
+
+    {activeSection === 'colaboradores' ? (
+      <>
+        <button 
+          onClick={toggleFormVisibility}
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4"
+        >
+          {showForm ? 'Cancelar' : (editing ? 'Editar Colaborador' : 'Agregar Colaborador')}
+        </button>
+      </>
+      ) : (
+        <GestionPersonal />
+      )}
+
+
+    <div className="mt-12 bg-white rounded-xl shadow-sm p-6">
+      <h2 className="text-xl font-bold mb-6 text-gray-800">
+        Gráfico de Gestión Personal
+      </h2>
+      <div className="h-[500px] w-full">
+        <GestionPersonalChart registros={registros} />
+      </div>
+    </div>
+
+
 
       {showForm && (
   <div className="modal-overlay fixed inset-0 flex items-center justify-center z-50">
@@ -243,6 +306,7 @@ const departamentos = ['Producción', 'Ventas', 'Administración', 'Financiero']
     required
   />
 </div>
+
 
       {/* Botones del modal */}
       <div className="flex space-x-4 justify-end">
@@ -317,8 +381,14 @@ const departamentos = ['Producción', 'Ventas', 'Administración', 'Financiero']
               )}
             </tbody>
           </table>
+
+
+
         </div>
+        
       )}
+
+
     </div>
   );
 }

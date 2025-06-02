@@ -661,7 +661,7 @@ const formatearFechaHora = (fecha) => {
                     {devolucion.ventaId?.colaboradorId?.nombre || 'N/A'}
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-600 border-b">
-  {formatearFechaHora(devolucion.fechaDevolucion || devolucion.createdAt)}
+  {formatearFechaHora(devolucion.fechaDevolucion)}
 </td>
                   <td className="px-4 py-2 text-sm text-gray-600 border-b">
                     {devolucion.productoId?.nombre || 'N/A'}

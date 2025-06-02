@@ -5,7 +5,6 @@ import CobroList from './CobroList';
 import ColaboradorList from './ColaboradorList';
 import Reportes from './Reportes';
 import GastoList from './GastoList';  
-import GestionPersonal from './GestionPersonal';
 import LogoutButton from './LogouButton';  // Asegúrate de que la ruta sea correcta
 import { useUser } from '@clerk/clerk-react';  // Importar el hook useUser de Clerk
 
@@ -16,7 +15,6 @@ function Dashboard() {
 
   const [activeSection, setActiveSection] = useState('reportes');
   const [isSidebarVisible, setSidebarVisible] = useState(true);
-  const [showChatbot, setShowChatbot] = useState(false);
 
 
   
@@ -28,9 +26,6 @@ function Dashboard() {
     setSidebarVisible(!isSidebarVisible);
   };
 
-  const toggleChatbot = () => {
-    setShowChatbot(!showChatbot);
-  };
 
   const firstName = user ? user.firstName : 'Usuario';  // Mostrar "Usuario" si no hay nombre
 
@@ -72,7 +67,7 @@ function Dashboard() {
           <div className={`flex flex-col h-full pt-8 px-4 ${
             isSidebarVisible ? 'opacity-100' : 'opacity-0'
           } transition-opacity duration-300`}>
-            {/* Menú principal */}
+
             <div className="space-y-2 flex-grow">
               <button 
                 onClick={() => handleSectionChange('productos')}
@@ -117,15 +112,6 @@ function Dashboard() {
               </button>
 
               <button 
-                onClick={() => handleSectionChange('gestionPersonal')}
-                className={`w-full px-4 py-2 text-left rounded-lg transition-colors ${
-                  activeSection === 'gestionPersonal' ? 'bg-blue-500 text-white' : 'hover:bg-blue-500 hover:text-white'
-                }`}
-              >
-                Gestión Personal
-              </button>
-
-              <button 
                 onClick={() => handleSectionChange('reportes')}
                 className={`w-full px-4 py-2 text-left rounded-lg transition-colors ${
                   activeSection === 'reportes' ? 'bg-blue-500 text-white' : 'hover:bg-blue-500 hover:text-white'
@@ -160,7 +146,6 @@ function Dashboard() {
               {activeSection === 'colaboradores' && <ColaboradorList />}
               {activeSection === 'reportes' && <Reportes />}
               {activeSection === 'gastos' && <GastoList />}
-  {activeSection === 'gestionPersonal' && <GestionPersonal />}
 
             </div>
           </div>
