@@ -134,69 +134,84 @@ function GestionPersonal() {
     }));
   };
 
-  // Manejar nuevo registro
-  async function handleAgregarRegistro(e) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+async function handleAgregarRegistro(e) {
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
 
-    try {
-      const token = await getToken();
-      if (!token) throw new Error('No autorizado');
+  try {
+    const token = await getToken();
+    if (!token) throw new Error('No autorizado');
 
     const fechaSeleccionada = new Date(nuevoRegistro.fechaDeGestion);
 
+    // Formatear los datos correctamente
+    const formData = {
+      colaboradorId: nuevoRegistro.colaboradorId,
+      fechaDeGestion: fechaSeleccionada.toISOString(),
+      sueldo: parseFloat(nuevoRegistro.sueldo) || 0,
+      descripcion: nuevoRegistro.descripcion.trim(),
+      monto: parseFloat(nuevoRegistro.monto) || 0,
+      faltante: parseFloat(nuevoRegistro.faltante) || 0,
+      adelanto: parseFloat(nuevoRegistro.adelanto) || 0,
+      diasLaborados: parseInt(nuevoRegistro.diasLaborados) || 1,
+      pagodiario: parseFloat(nuevoRegistro.pagodiario) || 0
+    };
 
-      // Formatear los datos correctamente
-      const formData = {
-        colaboradorId: nuevoRegistro.colaboradorId,
-      fechaDeGestion: fechaSeleccionada.toISOString(), // Convertir a ISO string
-
-        sueldo: parseFloat(nuevoRegistro.sueldo),
-        descripcion: nuevoRegistro.descripcion.trim(),
-        monto: parseFloat(nuevoRegistro.monto),
-        faltante: parseFloat(nuevoRegistro.faltante) || 0,
-        adelanto: parseFloat(nuevoRegistro.adelanto) || 0,
-        diasLaborados: parseInt(nuevoRegistro.diasLaborados) || 1,
-        pagodiario: parseFloat(nuevoRegistro.pagodiario) || 0
-      };
-
-      // Validar campos requeridos
-      if (!formData.colaboradorId || !formData.descripcion || !formData.monto) {
-        throw new Error('Por favor complete todos los campos requeridos');
-      }
-
-      const response = await api.post(
-        '/gestion-personal',
-        formData, 
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      if (response.data) {
-        setRegistros(prevRegistros => [response.data, ...prevRegistros]);
-        setIsModalOpen(false);
-        setColaboradorSeleccionado(null);
-        setNuevoRegistro({
-          colaboradorId: '',
-          fechaDeGestion: getFechaActualString(),
-          sueldo: '',
-          descripcion: '',
-          monto: '',
-          faltante: 0,
-          adelanto: 0,
-          diasLaborados: 1,
-          pagodiario: 0
-        });
-      }
-    } catch (err) {
-      console.error('Error al agregar registro:', err);
-      setError(err.response?.data?.message || err.message || 'Error al agregar registro');
-    } finally {
-      setLoading(false);
+    // Validación modificada para permitir valores en 0
+    if (!formData.colaboradorId) {
+      throw new Error('Por favor seleccione un colaborador');
     }
+
+    if (!formData.descripcion) {
+      throw new Error('Por favor ingrese una descripción');
+    }
+
+    // Validar que los valores numéricos sean válidos (pueden ser 0 o positivos)
+    const numericos = {
+      monto: formData.monto,
+      faltante: formData.faltante,
+      adelanto: formData.adelanto,
+      pagodiario: formData.pagodiario
+    };
+
+    for (const [campo, valor] of Object.entries(numericos)) {
+      if (typeof valor !== 'number' || isNaN(valor) || valor < 0) {
+        throw new Error(`El campo ${campo} debe ser un número válido mayor o igual a 0`);
+      }
+    }
+
+    const response = await api.post(
+      '/gestion-personal',
+      formData, 
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    if (response.data) {
+      setRegistros(prevRegistros => [response.data, ...prevRegistros]);
+      setIsModalOpen(false);
+      setColaboradorSeleccionado(null);
+      setNuevoRegistro({
+        colaboradorId: '',
+        fechaDeGestion: getFechaActualString(),
+        sueldo: '',
+        descripcion: '',
+        monto: '0',
+        faltante: '0',
+        adelanto: '0',
+        diasLaborados: 1,
+        pagodiario: 0
+      });
+    }
+  } catch (err) {
+    console.error('Error al agregar registro:', err);
+    setError(err.response?.data?.message || err.message || 'Error al agregar registro');
+  } finally {
+    setLoading(false);
   }
+}
 
   const handleEliminarRegistro = async (id) => {
     if (!id) return;
