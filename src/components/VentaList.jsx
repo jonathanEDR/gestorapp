@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
 import { useAuth } from '@clerk/clerk-react';
 import SalesOverTimeChart from './graphics/SalesOverTimeChart';
+import ProductoSearchSelect from './ProductoSearchSelect'; // Ajusta la ruta
 
 
 
@@ -47,8 +48,11 @@ function VentaList() {
   const [ventasLimit, setVentasLimit] = useState(20);
   const [devolucionesLimit, setDevolucionesLimit] = React.useState(20); // mostrar 10 inicialmente
 const [fechaDevolucion, setFechaDevolucion] = useState(getFechaActualString());
-
+const [isSaving, setIsSaving] = useState(false);
+const [isSubmittingDevolucion, setIsSubmittingDevolucion] = useState(false);
   
+
+
 const loadVentas = useCallback(async () => {
   try {
     const token = await getToken();
@@ -201,6 +205,8 @@ useEffect(() => {
       if (!validateVenta()) return;
 
   try {
+    setIsSaving(true); // Iniciamos el proceso de guardado
+
     const token = await getToken();
     if (!token) {
       alert('No estás autorizado');
@@ -241,6 +247,8 @@ useEffect(() => {
   } catch (error) {
     console.error('Error:', error);
     alert('Error al procesar la venta: ' + (error.response ? error.response.data.message : error.message));
+  } finally {
+    setIsSaving(false);
   }
 };
 
@@ -377,6 +385,8 @@ const handleRegistrarDevolucion = async () => {
   }
 
   try {
+        setIsSubmittingDevolucion(true); // Iniciamos el proceso
+
     const token = await getToken();
     const precioUnitario = selectedProducto.montoTotal / selectedProducto.cantidad;
     const montoDevolucion = precioUnitario * parseInt(cantidadDevuelta);
@@ -412,6 +422,8 @@ const handleRegistrarDevolucion = async () => {
   } catch (error) {
     console.error('Error al registrar la devolución:', error);
     alert(error.response?.data?.message || 'Error al registrar la devolución');
+    } finally {
+    setIsSubmittingDevolucion(false); // Finalizamos el proceso
   }
 };
 
@@ -748,24 +760,12 @@ const formatearFechaHora = (fecha) => {
 {/* Producto Select */}
 <div className="mb-4">
   <label className="block text-sm font-medium text-gray-700 mb-1">Producto</label>
-  <select
-    value={ventaData.productoId}
-    onChange={handleProductoChange}
-    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-  >
-    <option value="">Selecciona un Producto</option>
-    {productos && productos.length > 0 ? (
-      productos
-        .filter((producto) => producto.cantidad - producto.cantidadVendida > 0) 
-        .map((producto) => (
-          <option key={producto._id} value={producto._id}>
-            {producto.nombre} (Stock: {producto.cantidad - producto.cantidadVendida})
-          </option>
-        ))
-    ) : (
-      <option disabled>No hay productos disponibles</option>
-    )}
-  </select>
+  <ProductoSearchSelect
+    productos={productos}
+    selectedProductoId={ventaData.productoId}
+    onProductoChange={handleProductoChange}
+    placeholder="Buscar producto por nombre..."
+  />
 </div>
 
             {/* Cantidad Input */}
@@ -819,11 +819,14 @@ const formatearFechaHora = (fecha) => {
 <div className="modal-buttons flex justify-end space-x-2 mt-6">
   <button
     onClick={handleAddOrEditVenta}
-    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-    disabled={!ventaData.colaboradorId || !ventaData.productoId || ventaData.cantidad <= 0}
+    className={`px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 
+      ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+    disabled={!ventaData.colaboradorId || !ventaData.productoId || 
+      ventaData.cantidad <= 0 || isSaving}
   >
-    Agregar
+    {isSaving ? 'Guardando...' : 'Agregar'}
   </button>
+  
   <button
     onClick={toggleFormVisibility}
     className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
@@ -901,12 +904,14 @@ const formatearFechaHora = (fecha) => {
             >
               Cancelar
             </button>
-            <button
-              onClick={handleRegistrarDevolucion}
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-            >
-              Registrar
-            </button>
+        <button
+          onClick={handleRegistrarDevolucion}
+          className={`px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600
+            ${isSubmittingDevolucion ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={isSubmittingDevolucion || !cantidadDevuelta || !motivo}
+        >
+          {isSubmittingDevolucion ? 'Registrando...' : 'Registrar'}
+        </button>
             </div>
           </div>
         </div>

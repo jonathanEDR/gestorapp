@@ -190,8 +190,8 @@ async function handleAgregarRegistro(e) {
     );
 
     if (response.data) {
-      setRegistros(prevRegistros => [response.data, ...prevRegistros]);
-      setIsModalOpen(false);
+    await fetchRegistros();
+          setIsModalOpen(false);
       setColaboradorSeleccionado(null);
       setNuevoRegistro({
         colaboradorId: '',

@@ -39,7 +39,7 @@ function CobroList() {
   const [loading, setLoading] = useState(false);
   const [selectedRange, setSelectedRange] = useState('month');
 
-
+const [isSubmittingCobro, setIsSubmittingCobro] = useState(false);
 
   // Envuelve fetchCobros en useCallback
   const fetchCobros = useCallback(async (page) => {
@@ -152,6 +152,7 @@ const handleAddCobro = async () => {
   }
 
   try {
+      setIsSubmittingCobro(true);
     // Obtener el token de autenticación
     const token = await getToken();
     if (!token) {
@@ -209,6 +210,9 @@ const handleAddCobro = async () => {
   } catch (error) {
     console.error('Error al verificar deuda pendiente:', error);
     alert('Error al verificar deuda pendiente');
+   } finally {
+    setIsSubmittingCobro(false);
+ 
   }
 };
 
@@ -562,17 +566,16 @@ const handleRangeChange = (range) => {
         >
           Cancelar
         </button>
-        <button
-          className={`px-4 py-2 rounded-md text-white ${
-            newCobro.colaboradorId && newCobro.montoPagado > 0
-              ? 'bg-blue-500 hover:bg-blue-600'
-              : 'bg-gray-400 cursor-not-allowed'
-          }`}
-          onClick={handleAddCobro}
-          disabled={!newCobro.colaboradorId || newCobro.montoPagado <= 0}
-        >
-          Agregar Cobro
-        </button>
+  <button
+    className={`px-4 py-2 rounded-md text-white 
+      ${newCobro.colaboradorId && newCobro.montoPagado > 0 && !isSubmittingCobro
+        ? 'bg-blue-500 hover:bg-blue-600'
+        : 'bg-gray-400 cursor-not-allowed'}`}
+    onClick={handleAddCobro}
+    disabled={!newCobro.colaboradorId || newCobro.montoPagado <= 0 || isSubmittingCobro}
+  >
+    {isSubmittingCobro ? 'Guardando...' : 'Agregar Cobro'}
+  </button>
       </div>
     </div>
   </div>

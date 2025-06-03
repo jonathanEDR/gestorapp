@@ -23,7 +23,7 @@ const departamentos = ['Producción', 'Ventas', 'Administración', 'Financiero']
 const [registros, setRegistros] = useState([]); // Estado para los registros del gráfico
   const [activeSection, setActiveSection] = useState('colaboradores'); // Agregar este estado
   const { isLoaded, isSignedIn, getToken } = useAuth();
-
+const [isSubmitting, setIsSubmitting] = useState(false);
 
 
   // Función para obtener colaboradores
@@ -123,6 +123,8 @@ const [registros, setRegistros] = useState([]); // Estado para los registros del
     }
   
     try {
+          setIsSubmitting(true);
+
       setError(null);
       const token = await getToken();
       if (!token) {
@@ -155,6 +157,9 @@ const [registros, setRegistros] = useState([]); // Estado para los registros del
     } catch (error) {
       console.error('Error al gestionar colaborador:', error);
       setError(`Error: ${error.message}`);
+   
+    } finally {
+    setIsSubmitting(false);
     }
   };
   
@@ -312,9 +317,11 @@ const handleSectionChange = (section) => {
       <div className="flex space-x-4 justify-end">
         <button
           onClick={handleAddOrEditColaborador}
-          className="px-6 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600"
+          disabled={isSubmitting}
+          className={`px-6 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600
+            ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          {editing ? 'Actualizar' : 'Agregar'}
+          {isSubmitting ? 'Guardando...' : (editing ? 'Actualizar' : 'Agregar')}
         </button>
         {editing && (
           <button
