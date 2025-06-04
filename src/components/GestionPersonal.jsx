@@ -37,10 +37,15 @@ function GestionPersonal() {
   const [registroAEliminar, setRegistroAEliminar] = useState(null);
   const [vistaActual, setVistaActual] = useState('colaboradores'); // 'colaboradores' o 'detalle'
   const [colaboradorDetalle, setColaboradorDetalle] = useState(null); // Para vista detalle
-  const [filtroFecha, setFiltroFecha] = useState('historico'); // 'semana', 'mes', 'año', 'historico'
+  const [filtroFecha, setFiltroFecha] = useState('month'); // 'semana', 'mes', 'año', 'historico'
   const [fechaInicio, setFechaInicio] = useState(null);
   const [fechaFin, setFechaFin] = useState(null);
-  
+  const [customDateRange, setCustomDateRange] = useState({
+  start: '',
+  end: ''
+});
+
+
   useEffect(() => {
     fetchRegistros();
     fetchColaboradores();
@@ -337,6 +342,7 @@ const filtrarRegistrosPorFecha = (registros) => {
   });
 };
 
+
 // Modificar la función obtenerRegistrosDeColaborador
 const obtenerRegistrosDeColaborador = (colaboradorId) => {
   const registrosColaborador = registros.filter(registro => 
@@ -374,6 +380,14 @@ const calcularTotalpagodiario = (colaboradorId) => {
     const totalAdelantos = calcularTotalAdelantos(colaboradorId);
     return totalPagodiario - (totalFaltantes + totalAdelantos);
   };
+
+const handleCustomDateRange = () => {
+  if (customDateRange.start && customDateRange.end) {
+    setFiltroFecha('personalizado');
+  }
+};
+
+
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -483,6 +497,36 @@ const calcularTotalpagodiario = (colaboradorId) => {
       </button>
     </div>
     
+      <div className="flex items-center space-x-2">
+        <input
+          type="date"
+          value={customDateRange.start}
+          onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
+          className="px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <span className="text-gray-500">-</span>
+        <input
+          type="date"
+          value={customDateRange.end}
+          onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
+          className="px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <button
+          onClick={handleCustomDateRange}
+          disabled={!customDateRange.start || !customDateRange.end}
+          className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+            filtroFecha === 'personalizado'
+              ? 'bg-gradient-to-r from-green-500 to-teal-500 text-white shadow-lg shadow-green-200/50'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
+          }`}
+        >
+          <span className="relative z-10 text-sm">📊 Aplicar</span>
+          {filtroFecha === 'personalizado' && (
+            <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-teal-400 rounded-xl blur opacity-30"></div>
+          )}
+        </button>
+      </div>
+
     {/* Indicador de estado */}
     <div className="flex items-center gap-3">
       <div className="hidden lg:block w-px h-8 bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>

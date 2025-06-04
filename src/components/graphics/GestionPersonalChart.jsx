@@ -162,11 +162,11 @@ function getXAxisLabel(range) {
 
 const GestionPersonalChart = ({ registros }) => {
   // Estado para seleccionar rango de tiempo
-  const [selectedRange, setSelectedRange] = useState('historical');
+  const [selectedRange, setSelectedRange] = useState('month');
 
   // Función para filtrar registros según rango
   const filtrarRegistrosPorFecha = (registros) => {
-    if (selectedRange === 'historical') return registros;
+    if (selectedRange === 'month') return registros;
 
     const hoy = new Date();
     let inicio = new Date();

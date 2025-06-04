@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
-import api from '../services/api'; // Ajusta la ruta si es necesario
+import api, { getGestionPersonal } from '../services/api'; // Ajusta la ruta si es necesario
 import SalesByCollaboratorChart from './graphics/SalesByCollaboratorChart'; // Asegúrate de importar el componente
 import CollectionsByCollaboratorChart from './graphics/CollectionsByCollaboratorChart'; 
 import ProductSalesAnalysisChart from './graphics/ProductSalesAnalysisChart';
-
+import GestionPersonalDepartamentoChart from './graphics/GestionPersonalDepartamentoChart';
 
 
 function Reportes() {
@@ -12,6 +12,7 @@ function Reportes() {
   const [ventas, setVentas] = useState([]);
   const [productos, setProductos] = useState([]);
   const [cobros, setCobros] = useState([]);
+const [registros, setRegistros] = useState([]); 
   const [pagosPorColaborador, setPagosPorColaborador] = useState({});
   const [expandedColaborador, setExpandedColaborador] = useState(null);
   const [totalVentasPorColaborador, setTotalVentasPorColaborador] = useState({});
@@ -24,8 +25,9 @@ function Reportes() {
   const [currentPageProductos, setCurrentPageProductos] = useState(1);
   const [itemsPerPageProductos] = useState(10);
 
-  const [selectedRange, setSelectedRange] = useState('semana'); // Estado para gestionar el rango de tiempo seleccionado
-
+  const [selectedRange, setSelectedRange] = useState('month'); // Estado para gestionar el rango de tiempo seleccionado
+const [registrosGestion, setRegistrosGestion] = useState([]);
+const [filtroFecha, setFiltroFecha] = useState('historico');
 
   // Función para obtener ventas
 const fetchVentas = useCallback(async () => {
@@ -73,13 +75,24 @@ const fetchCobros = useCallback(async () => {
   }
 }, [getToken]);
 
-
+const fetchGestionData = useCallback(async () => {
+  try {
+    const token = await getToken();
+    const response = await api.get('/gestion-personal', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setRegistrosGestion(response.data || []); // Actualiza registrosGestion
+    setRegistros(response.data || []); // Actualiza registros
+  } catch (error) {
+    console.error('Error al obtener datos de gestión:', error);
+  }
+}, [getToken]);
 
   useEffect(() => {
     fetchVentas(); // Llamamos a la función para obtener las ventas
     fetchCobros(); // Llamamos a la función para obtener los cobros
-
-  }, [fetchVentas, fetchCobros]);
+    fetchGestionData();
+  }, [fetchVentas, fetchCobros,fetchGestionData]);
 
   // Funciones para la paginación local de ventas
   const goToNextPageVentas = () => {
@@ -326,16 +339,6 @@ const totalPagesProductos = Math.ceil(productos.length / itemsPerPageProductos);
     setExpandedColaborador(expandedColaborador === colaboradorId ? null : colaboradorId);
   };
 
-
-
-
-
-
-
-
-
-
-
   
   // Manejar el cambio en el rango de tiempo
 const handleRangeChange = (eventOrValue) => {
@@ -437,6 +440,23 @@ const ventasConColaborador = ventas.map(venta => ({
           )}
         </div>
 
+              <div 
+                className={`bg-white rounded-lg shadow p-6 border-l-4 ${
+                  activeView === 'gestion' ? 'border-amber-700 bg-amber-50' : 'border-amber-500'
+                } cursor-pointer transition-all hover:shadow-lg`}
+                onClick={() => setActiveView('gestion')}
+              >
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">Gestión Personal</h3>
+                <p className="text-3xl font-bold text-amber-600">{registros?.length || 0}</p>
+                <p className="text-sm text-gray-500 mt-2">Registros de Personal</p>
+                {activeView === 'gestion' && (
+                  <div className="mt-2 text-xs text-amber-600 flex items-center">
+                    <span className="mr-1">• Activo</span>
+                  </div>
+                )}
+              </div>
+
+
       </div>
 
       {/* Vista condicional - Ventas */}
@@ -445,19 +465,49 @@ const ventasConColaborador = ventas.map(venta => ({
           <h3 className="text-xl font-semibold text-gray-700 mb-4">Reporte de Ventas</h3>
           
           {/* Gráfico de ventas */}
-          <div className="mb-8">
-
-      <select 
-        id="timeRange" 
-        value={selectedRange}
-        onChange={handleRangeChange}
-        className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-      >
-        <option value="week">Esta Semana</option>
-        <option value="month">Este Mes</option>
-        <option value="year">Este Año</option>
-        <option value="historical">Histórico</option>
-      </select>
+    <div className="mb-8">
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button
+          onClick={() => setSelectedRange('week')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+            selectedRange === 'week'
+              ? 'bg-amber-500 text-white shadow-lg'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
+          }`}
+        >
+          Esta Semana
+        </button>
+        <button
+          onClick={() => setSelectedRange('month')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+            selectedRange === 'month'
+              ? 'bg-amber-500 text-white shadow-lg'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
+          }`}
+        >
+          Este Mes
+        </button>
+        <button
+          onClick={() => setSelectedRange('year')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+            selectedRange === 'year'
+              ? 'bg-amber-500 text-white shadow-lg'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
+          }`}
+        >
+          Este Año
+        </button>
+        <button
+          onClick={() => setSelectedRange('historical')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+            selectedRange === 'historical'
+              ? 'bg-amber-500 text-white shadow-lg'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
+          }`}
+        >
+          Histórico
+        </button>
+      </div>
               <SalesByCollaboratorChart
         ventas={ventasConColaborador}
         selectedRange={selectedRange}
@@ -517,95 +567,96 @@ const ventasConColaborador = ventas.map(venta => ({
 
 
       {/* Vista condicional - Productos */}
-{activeView === 'productos' && (
-  <div className="report-section mb-6">
-    <h3 className="text-xl font-semibold text-gray-700 mb-4">Reporte de Inventario</h3>
-   
+      {activeView === 'productos' && (
+        <div className="report-section mb-6">
+          <h3 className="text-xl font-semibold text-gray-700 mb-4">Reporte de Inventario</h3>
+        
 
-   {/* Agregar el nuevo gráfico */}
-<div className="mb-8">
-<ProductSalesAnalysisChart 
-  ventas={ventas} // Asegúrate que ventas tenga productoId.nombre
-  selectedRange={selectedRange}
-  onRangeChange={handleRangeChange}
-/>  
+        {/* Agregar el nuevo gráfico */}
+      <div className="mb-8">
+      <ProductSalesAnalysisChart 
+        ventas={ventas} // Asegúrate que ventas tenga productoId.nombre
+        selectedRange={selectedRange}
+        onRangeChange={handleRangeChange}
+      />  
 
-</div>
-   
-    <div className="overflow-x-auto">
-      <table className="min-w-full table-auto border-collapse border border-gray-300">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-b">Producto</th>
-            <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-b">Cantidad</th>
-            <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-b">C.Vendida</th>
-            <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-b">C.disponible</th>
-          </tr>
-        </thead>
-        <tbody>
-          {productosPaginados.map((producto) => (
-            <tr key={producto._id} className="hover:bg-gray-50">
-              <td className="px-4 py-2 text-sm text-gray-600 border-b">{producto.nombre}</td>
-              <td className="px-4 py-2 text-sm text-gray-600 border-b">{producto.cantidad}</td>
-              <td className="px-4 py-2 text-sm text-gray-600 border-b">{producto.cantidadVendida}</td>
-              <td className="px-4 py-2 text-sm text-gray-600 border-b">{producto.cantidadRestante}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-    
-    {/* Controles de paginación para productos */}
-    <div className="flex justify-between items-center mt-4">
-      <div className="text-sm text-gray-600">
-        Página {currentPageProductos} de {totalPagesProductos} (Total: {productos.length} registros)
       </div>
-      <div className="flex space-x-2">
-        <button 
-          onClick={goToPreviousPageProductos} 
-          disabled={currentPageProductos === 1}
-          className={`px-3 py-1 rounded ${
-            currentPageProductos === 1 
-              ? 'bg-gray-300 cursor-not-allowed' 
-              : 'bg-green-500 text-white hover:bg-green-600'
-          }`}
-        >
-          Anterior
-        </button>
-        <button 
-          onClick={goToNextPageProductos} 
-          disabled={currentPageProductos === totalPagesProductos}
-          className={`px-3 py-1 rounded ${
-            currentPageProductos === totalPagesProductos 
-              ? 'bg-gray-300 cursor-not-allowed' 
-              : 'bg-green-500 text-white hover:bg-green-600'
-          }`}
-        >
-          Siguiente
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+        
+          <div className="overflow-x-auto">
+            <table className="min-w-full table-auto border-collapse border border-gray-300">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-b">Producto</th>
+                  <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-b">Cantidad</th>
+                  <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-b">C.Vendida</th>
+                  <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-b">C.disponible</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productosPaginados.map((producto) => (
+                  <tr key={producto._id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{producto.nombre}</td>
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{producto.cantidad}</td>
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{producto.cantidadVendida}</td>
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{producto.cantidadRestante}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Controles de paginación para productos */}
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-gray-600">
+              Página {currentPageProductos} de {totalPagesProductos} (Total: {productos.length} registros)
+            </div>
+            <div className="flex space-x-2">
+              <button 
+                onClick={goToPreviousPageProductos} 
+                disabled={currentPageProductos === 1}
+                className={`px-3 py-1 rounded ${
+                  currentPageProductos === 1 
+                    ? 'bg-gray-300 cursor-not-allowed' 
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                }`}
+              >
+                Anterior
+              </button>
+              <button 
+                onClick={goToNextPageProductos} 
+                disabled={currentPageProductos === totalPagesProductos}
+                className={`px-3 py-1 rounded ${
+                  currentPageProductos === totalPagesProductos 
+                    ? 'bg-gray-300 cursor-not-allowed' 
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                }`}
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
 
-
-      {activeView === 'cobros' && (      <div className="report-section mb-6">
+      {/* Vista condicional - Cobros */}
+      {activeView === 'cobros' && (     
+     <div className="report-section mb-6">
       <h3 className="text-xl font-semibold text-gray-700 mb-4">Reporte de Pagos</h3>
               
               <div className="mb-8">
-  {cobros.length > 0 ? (
-    <CollectionsByCollaboratorChart 
-      cobros={cobros} 
-      selectedRange={selectedRange} 
-    />
-  ) : (
-    <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
-      <p className="text-lg text-gray-500">No hay datos de cobros disponibles</p>
-    </div>
-  )}
-</div>
+                {cobros.length > 0 ? (
+                  <CollectionsByCollaboratorChart 
+                    cobros={cobros} 
+                    selectedRange={selectedRange} 
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-lg text-gray-500">No hay datos de cobros disponibles</p>
+                  </div>
+                )}
+              </div>
               
               <div className="overflow-x-auto">
                 <table className="min-w-full table-auto border-collapse border border-gray-300">
@@ -707,6 +758,74 @@ const ventasConColaborador = ventas.map(venta => ({
               </div>
             </div>
       )}
+
+{/* Vista condicional - Gestión Personal */}
+{activeView === 'gestion' && (
+  <div className="report-section mb-6">
+    <h3 className="text-xl font-semibold text-gray-700 mb-4">Reporte de Gestión de Personal</h3>
+    
+    {/* Selector de tiempo con botones */}
+    <div className="mb-8">
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button
+          onClick={() => setSelectedRange('week')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+            selectedRange === 'week'
+              ? 'bg-amber-500 text-white shadow-lg'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
+          }`}
+        >
+          Esta Semana
+        </button>
+        <button
+          onClick={() => setSelectedRange('month')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+            selectedRange === 'month'
+              ? 'bg-amber-500 text-white shadow-lg'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
+          }`}
+        >
+          Este Mes
+        </button>
+        <button
+          onClick={() => setSelectedRange('year')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+            selectedRange === 'year'
+              ? 'bg-amber-500 text-white shadow-lg'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
+          }`}
+        >
+          Este Año
+        </button>
+        <button
+          onClick={() => setSelectedRange('historical')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+            selectedRange === 'historical'
+              ? 'bg-amber-500 text-white shadow-lg'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
+          }`}
+        >
+          Histórico
+        </button>
+      </div>
+
+      {/* Análisis por Departamento */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h4 className="text-lg font-semibold text-gray-700 mb-4">
+          Análisis por Departamento
+        </h4>
+        <GestionPersonalDepartamentoChart 
+          registros={registrosGestion}
+          selectedRange={selectedRange}
+        />
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+
     </div>
   );
 }

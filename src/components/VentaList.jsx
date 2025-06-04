@@ -38,7 +38,7 @@ function VentaList() {
   const [cantidadDisponible, setCantidadDisponible] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedRange, setSelectedRange] = useState('year');
+  const [selectedRange, setSelectedRange] = useState('month');
   const [devoluciones, setDevoluciones] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedProducto, setSelectedProducto] = useState(null);
@@ -510,38 +510,107 @@ const formatearFechaHora = (fecha) => {
       <h2 className="text-2xl font-semibold text-gray-800 mb-4">Ventas</h2>
       
             {/* Botones para seleccionar el rango de tiempo */}
-      <div className="flex flex-wrap space-x-2 mb-8">
-        <button 
-          onClick={() => handleRangeChange('day')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'day' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}
-        >
-          Hoy
-        </button>
-        <button 
-          onClick={() => handleRangeChange('week')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'week' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
-        >
-          Esta Semana
-        </button>
-        <button 
-          onClick={() => handleRangeChange('month')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'month' ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'}`}
-        >
-          Este Mes
-        </button>
-        <button 
-          onClick={() => handleRangeChange('year')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'year' ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
-        >
-          Este Año
-        </button>
-        <button 
-          onClick={() => handleRangeChange('historical')} 
-          className={`px-4 py-2 rounded mb-2 transition-colors ${selectedRange === 'historical' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
-        >
-          Histórico
-        </button>
+<div className="mb-8">
+  <div className="flex flex-wrap gap-2">
+    <button
+      onClick={() => handleRangeChange('day')}
+      className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+        selectedRange === 'day'
+          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-200/50'
+          : 'bg-white text-gray-600 border border-gray-300 hover:bg-blue-50'
+      }`}
+    >
+      <span className="relative z-10 text-sm">📅 Hoy</span>
+      {selectedRange === 'day' && (
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-xl blur opacity-30"></div>
+      )}
+    </button>
+
+    <button
+      onClick={() => handleRangeChange('week')}
+      className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+        selectedRange === 'week'
+          ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-200/50'
+          : 'bg-white text-gray-600 border border-gray-300 hover:bg-green-50'
+      }`}
+    >
+      <span className="relative z-10 text-sm">🗓️ Esta Semana</span>
+      {selectedRange === 'week' && (
+        <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 rounded-xl blur opacity-30"></div>
+      )}
+    </button>
+
+    <button
+      onClick={() => handleRangeChange('month')}
+      className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+        selectedRange === 'month'
+          ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-200/50'
+          : 'bg-white text-gray-600 border border-gray-300 hover:bg-purple-50'
+      }`}
+    >
+      <span className="relative z-10 text-sm">📊 Este Mes</span>
+      {selectedRange === 'month' && (
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-violet-400 rounded-xl blur opacity-30"></div>
+      )}
+    </button>
+
+    <button
+      onClick={() => handleRangeChange('year')}
+      className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+        selectedRange === 'year'
+          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-200/50'
+          : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
+      }`}
+    >
+      <span className="relative z-10 text-sm">📅 Este Año</span>
+      {selectedRange === 'year' && (
+        <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-orange-400 rounded-xl blur opacity-30"></div>
+      )}
+    </button>
+
+    <button
+      onClick={() => handleRangeChange('historical')}
+      className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+        selectedRange === 'historical'
+          ? 'bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg shadow-gray-200/50'
+          : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+      }`}
+    >
+      <span className="relative z-10 text-sm">🏛️ Histórico</span>
+      {selectedRange === 'historical' && (
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-slate-400 rounded-xl blur opacity-30"></div>
+      )}
+    </button>
+  </div>
+
+  {/* Indicador de rango seleccionado */}
+  <div className="mt-4 flex items-center gap-3">
+    <div className="hidden lg:block w-px h-8 bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
+    <div className="bg-gradient-to-r from-slate-50 to-gray-50 px-4 py-2 rounded-xl border border-gray-200/50">
+      <div className="flex items-center gap-2">
+        <div className={`w-2 h-2 rounded-full animate-pulse ${
+          selectedRange === 'day' ? 'bg-blue-400' :
+          selectedRange === 'week' ? 'bg-green-400' :
+          selectedRange === 'month' ? 'bg-purple-400' :
+          selectedRange === 'year' ? 'bg-amber-400' :
+          'bg-gray-400'
+        }`}></div>
+        <span className="text-sm font-medium text-gray-700">
+          {selectedRange === 'historical' 
+            ? 'Todos los registros'
+            : selectedRange === 'day'
+            ? 'Hoy'
+            : selectedRange === 'week'
+            ? 'Semana actual (Lun - Dom)'
+            : selectedRange === 'month'
+            ? `Mes de ${new Date().toLocaleString('es-ES', { month: 'long' })}`
+            : `Año ${new Date().getFullYear()}`
+          }
+        </span>
       </div>
+    </div>
+  </div>
+</div>
 
       {/* Gráfico de ventas con mensaje cuando no hay datos */}
       <div className="mb-8">

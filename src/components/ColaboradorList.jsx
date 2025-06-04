@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
 import { useAuth } from '@clerk/clerk-react';
-import GestionPersonalChart from './graphics/GestiónPersonalChart';
+import GestionPersonalChart from './graphics/GestionPersonalChart';
 import GestionPersonal from './GestionPersonal';
 
 

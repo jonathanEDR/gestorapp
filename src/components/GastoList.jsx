@@ -28,7 +28,7 @@ const [selectedCategory, setSelectedCategory] = useState('');
 const [expandedProduct, setExpandedProduct] = useState(null);
 
 // Estados necesarios (agregar a tu useState)
-const [dateFilter, setDateFilter] = useState('all');
+const [dateFilter, setDateFilter] = useState('year');
 const [customDateRange, setCustomDateRange] = useState({
   start: '',
   end: '',
@@ -378,7 +378,7 @@ const getDateRangeText = () => {
 
 // Función principal para filtrar gastos por rango de fechas
 const filterGastosByDateRange = (gastos) => {
-  if (dateFilter === 'all') return gastos;
+  if (dateFilter === 'year') return gastos;
   
   const today = new Date();
   today.setHours(23, 59, 59, 999); // Fin del día de hoy
