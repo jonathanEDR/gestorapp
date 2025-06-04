@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
 import { useAuth } from '@clerk/clerk-react';
 import SalesOverTimeChart from './graphics/SalesOverTimeChart';
-import ProductoSearchSelect from './ProductoSearchSelect'; // Ajusta la ruta
+import ProductoSearchSelect from './components/ProductoSearchSelect'; // Ajusta la ruta
 
 
 
@@ -510,118 +510,118 @@ const formatearFechaHora = (fecha) => {
       <h2 className="text-2xl font-semibold text-gray-800 mb-4">Ventas</h2>
       
             {/* Botones para seleccionar el rango de tiempo */}
-<div className="mb-8">
-  <div className="flex flex-wrap gap-2">
-    <button
-      onClick={() => handleRangeChange('day')}
-      className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
-        selectedRange === 'day'
-          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-200/50'
-          : 'bg-white text-gray-600 border border-gray-300 hover:bg-blue-50'
-      }`}
-    >
-      <span className="relative z-10 text-sm">📅 Hoy</span>
-      {selectedRange === 'day' && (
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-xl blur opacity-30"></div>
-      )}
-    </button>
+        <div className="mb-8">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handleRangeChange('day')}
+              className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+                selectedRange === 'day'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-200/50'
+                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-blue-50'
+              }`}
+            >
+              <span className="relative z-10 text-sm">📅 Hoy</span>
+              {selectedRange === 'day' && (
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-xl blur opacity-30"></div>
+              )}
+            </button>
 
-    <button
-      onClick={() => handleRangeChange('week')}
-      className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
-        selectedRange === 'week'
-          ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-200/50'
-          : 'bg-white text-gray-600 border border-gray-300 hover:bg-green-50'
-      }`}
-    >
-      <span className="relative z-10 text-sm">🗓️ Esta Semana</span>
-      {selectedRange === 'week' && (
-        <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 rounded-xl blur opacity-30"></div>
-      )}
-    </button>
+            <button
+              onClick={() => handleRangeChange('week')}
+              className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+                selectedRange === 'week'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-200/50'
+                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-green-50'
+              }`}
+            >
+              <span className="relative z-10 text-sm">🗓️ Esta Semana</span>
+              {selectedRange === 'week' && (
+                <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 rounded-xl blur opacity-30"></div>
+              )}
+            </button>
 
-    <button
-      onClick={() => handleRangeChange('month')}
-      className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
-        selectedRange === 'month'
-          ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-200/50'
-          : 'bg-white text-gray-600 border border-gray-300 hover:bg-purple-50'
-      }`}
-    >
-      <span className="relative z-10 text-sm">📊 Este Mes</span>
-      {selectedRange === 'month' && (
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-violet-400 rounded-xl blur opacity-30"></div>
-      )}
-    </button>
+            <button
+              onClick={() => handleRangeChange('month')}
+              className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+                selectedRange === 'month'
+                  ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-200/50'
+                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-purple-50'
+              }`}
+            >
+              <span className="relative z-10 text-sm">📊 Este Mes</span>
+              {selectedRange === 'month' && (
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-violet-400 rounded-xl blur opacity-30"></div>
+              )}
+            </button>
 
-    <button
-      onClick={() => handleRangeChange('year')}
-      className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
-        selectedRange === 'year'
-          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-200/50'
-          : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
-      }`}
-    >
-      <span className="relative z-10 text-sm">📅 Este Año</span>
-      {selectedRange === 'year' && (
-        <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-orange-400 rounded-xl blur opacity-30"></div>
-      )}
-    </button>
+            <button
+              onClick={() => handleRangeChange('year')}
+              className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+                selectedRange === 'year'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-200/50'
+                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
+              }`}
+            >
+              <span className="relative z-10 text-sm">📅 Este Año</span>
+              {selectedRange === 'year' && (
+                <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-orange-400 rounded-xl blur opacity-30"></div>
+              )}
+            </button>
 
-    <button
-      onClick={() => handleRangeChange('historical')}
-      className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
-        selectedRange === 'historical'
-          ? 'bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg shadow-gray-200/50'
-          : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
-      }`}
-    >
-      <span className="relative z-10 text-sm">🏛️ Histórico</span>
-      {selectedRange === 'historical' && (
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-slate-400 rounded-xl blur opacity-30"></div>
-      )}
-    </button>
-  </div>
-
-  {/* Indicador de rango seleccionado */}
-  <div className="mt-4 flex items-center gap-3">
-    <div className="hidden lg:block w-px h-8 bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
-    <div className="bg-gradient-to-r from-slate-50 to-gray-50 px-4 py-2 rounded-xl border border-gray-200/50">
-      <div className="flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full animate-pulse ${
-          selectedRange === 'day' ? 'bg-blue-400' :
-          selectedRange === 'week' ? 'bg-green-400' :
-          selectedRange === 'month' ? 'bg-purple-400' :
-          selectedRange === 'year' ? 'bg-amber-400' :
-          'bg-gray-400'
-        }`}></div>
-        <span className="text-sm font-medium text-gray-700">
-          {selectedRange === 'historical' 
-            ? 'Todos los registros'
-            : selectedRange === 'day'
-            ? 'Hoy'
-            : selectedRange === 'week'
-            ? 'Semana actual (Lun - Dom)'
-            : selectedRange === 'month'
-            ? `Mes de ${new Date().toLocaleString('es-ES', { month: 'long' })}`
-            : `Año ${new Date().getFullYear()}`
-          }
-        </span>
-      </div>
-    </div>
-  </div>
-</div>
-
-      {/* Gráfico de ventas con mensaje cuando no hay datos */}
-      <div className="mb-8">
-        {ventas.length > 0 ? (
-          <SalesOverTimeChart ventas={ventas} devoluciones={devoluciones} selectedRange={selectedRange} />
-        ) : (
-          <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-lg text-gray-500">No hay datos de ventas disponibles</p>
+            <button
+              onClick={() => handleRangeChange('historical')}
+              className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
+                selectedRange === 'historical'
+                  ? 'bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg shadow-gray-200/50'
+                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <span className="relative z-10 text-sm">🏛️ Histórico</span>
+              {selectedRange === 'historical' && (
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-slate-400 rounded-xl blur opacity-30"></div>
+              )}
+            </button>
           </div>
-        )}
-      </div>  
+
+          {/* Indicador de rango seleccionado */}
+          <div className="mt-4 flex items-center gap-3">
+            <div className="hidden lg:block w-px h-8 bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
+            <div className="bg-gradient-to-r from-slate-50 to-gray-50 px-4 py-2 rounded-xl border border-gray-200/50">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                  selectedRange === 'day' ? 'bg-blue-400' :
+                  selectedRange === 'week' ? 'bg-green-400' :
+                  selectedRange === 'month' ? 'bg-purple-400' :
+                  selectedRange === 'year' ? 'bg-amber-400' :
+                  'bg-gray-400'
+                }`}></div>
+                <span className="text-sm font-medium text-gray-700">
+                  {selectedRange === 'historical' 
+                    ? 'Todos los registros'
+                    : selectedRange === 'day'
+                    ? 'Hoy'
+                    : selectedRange === 'week'
+                    ? 'Semana actual (Lun - Dom)'
+                    : selectedRange === 'month'
+                    ? `Mes de ${new Date().toLocaleString('es-ES', { month: 'long' })}`
+                    : `Año ${new Date().getFullYear()}`
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+          {/* Gráfico de ventas con mensaje cuando no hay datos */}
+          <div className="mb-8">
+            {ventas.length > 0 ? (
+              <SalesOverTimeChart ventas={ventas} devoluciones={devoluciones} selectedRange={selectedRange} />
+            ) : (
+              <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-lg text-gray-500">No hay datos de ventas disponibles</p>
+              </div>
+            )}
+          </div>  
       
       <button
         onClick={toggleFormVisibility}
@@ -630,93 +630,93 @@ const formatearFechaHora = (fecha) => {
         {ventaData.showForm ? 'Cancelar' : 'Agregar Venta'}
       </button>
 
-<table className="min-w-full table-auto border-collapse border border-gray-300">
-  <thead className="bg-gray-100">
-    <tr>
-      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">#</th>
-      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Colaborador</th>
-      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Producto</th>
-      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Cantidad</th>
-      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Total</th>
-      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Devoluciones</th>
-      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Devuelto</th>
+        <table className="min-w-full table-auto border-collapse border border-gray-300">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">#</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Colaborador</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Producto</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Cantidad</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Total</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Devoluciones</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Devuelto</th>
 
-<th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Fecha de Venta</th>
-      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    {ventas.length ? (
-      ventas.slice(0, ventasLimit).map((venta, index) => {
+        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Fecha de Venta</th>
+              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ventas.length ? (
+              ventas.slice(0, ventasLimit).map((venta, index) => {
 
-        const rowNumber = index + 1;
+                const rowNumber = index + 1;
 
-        // Obtener devoluciones para esta venta
-        const devolucionesVenta = devoluciones.filter(d => d.ventaId._id === venta._id);
-        const cantidadTotalDevuelta = devolucionesVenta.reduce((acc, dev) => acc + (parseInt(dev.cantidadDevuelta) || 0), 0);
-        const montoTotalDevuelto = devolucionesVenta.reduce((acc, dev) => acc + (parseFloat(dev.montoDevolucion) || 0), 0);
-        const tieneDevolucion = devolucionesVenta.length > 0;
+                // Obtener devoluciones para esta venta
+                const devolucionesVenta = devoluciones.filter(d => d.ventaId._id === venta._id);
+                const cantidadTotalDevuelta = devolucionesVenta.reduce((acc, dev) => acc + (parseInt(dev.cantidadDevuelta) || 0), 0);
+                const montoTotalDevuelto = devolucionesVenta.reduce((acc, dev) => acc + (parseFloat(dev.montoDevolucion) || 0), 0);
+                const tieneDevolucion = devolucionesVenta.length > 0;
 
-        return (
-          <tr key={venta._id} className="hover:bg-gray-50">
-            <td className="px-4 py-2 text-sm text-gray-600 border-b">{rowNumber}</td>
-            <td className="px-4 py-2 text-sm text-gray-600 border-b">{venta.colaboradorId?.nombre || 'N/A'}</td>
-            <td className="px-4 py-2 text-sm text-gray-600 border-b">{venta.productoId?.nombre || 'N/A'}</td>
-            <td className="px-4 py-2 text-sm text-gray-600 border-b">{venta.cantidad}</td>
-            <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {venta.montoTotal.toFixed(2)}</td>
-            <td className="px-4 py-2 text-sm text-gray-600 border-b">
-              {cantidadTotalDevuelta > 0 ? cantidadTotalDevuelta : '0'}
-            </td>
-            <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {montoTotalDevuelto.toFixed(2)}</td>
+                return (
+                  <tr key={venta._id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{rowNumber}</td>
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{venta.colaboradorId?.nombre || 'N/A'}</td>
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{venta.productoId?.nombre || 'N/A'}</td>
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{venta.cantidad}</td>
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {venta.montoTotal.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">
+                      {cantidadTotalDevuelta > 0 ? cantidadTotalDevuelta : '0'}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {montoTotalDevuelto.toFixed(2)}</td>
 
-<td className="px-4 py-2 text-sm text-gray-600 border-b">
-  {formatearFechaHora(venta.fechadeVenta)}
-</td>
-
-<td className="px-4 py-2 text-sm text-gray-600 border-b flex space-x-2">
-  {venta.cantidad - cantidadTotalDevuelta > 0 && (
-    <>
-      <button
-        onClick={() => abrirModalDevolucion(venta)}
-        className="text-blue-500 hover:text-blue-700"
-      >
-        Devolver
-      </button>
-      {!tieneDevolucion && (
-        <button
-          onClick={() => handleDeleteVenta(venta._id)}
-          className="text-red-500 hover:text-red-700"
-        >
-          Eliminar
-        </button>
-      )}
-    </>
-  )}
-</td>
-          </tr>
-        );
-      })
-    ) : (
-      <tr>
-        <td colSpan="9" className="px-4 py-2 text-center text-gray-600">
-          No hay ventas registradas.
+        <td className="px-4 py-2 text-sm text-gray-600 border-b">
+          {formatearFechaHora(venta.fechadeVenta)}
         </td>
-      </tr>
-    )}
-  </tbody>
-</table>
 
-{/* Botón Ver más: fuera de la tabla y solo si hay más ventas que mostrar */}
-{ventasLimit < ventas.length && (
-  <div className="flex justify-center mt-4">
-    <button
-      onClick={() => setVentasLimit(ventasLimit + 20)} // Aumenta 20 ventas al mostrar
-      className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-    >
-      Ver más
-    </button>
-  </div>
-)}
+        <td className="px-4 py-2 text-sm text-gray-600 border-b flex space-x-2">
+          {venta.cantidad - cantidadTotalDevuelta > 0 && (
+            <>
+              <button
+                onClick={() => abrirModalDevolucion(venta)}
+                className="text-blue-500 hover:text-blue-700"
+              >
+                Devolver
+              </button>
+              {!tieneDevolucion && (
+                <button
+                  onClick={() => handleDeleteVenta(venta._id)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  Eliminar
+                </button>
+              )}
+            </>
+          )}
+        </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan="9" className="px-4 py-2 text-center text-gray-600">
+                  No hay ventas registradas.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+          {/* Botón Ver más: fuera de la tabla y solo si hay más ventas que mostrar */}
+          {ventasLimit < ventas.length && (
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={() => setVentasLimit(ventasLimit + 20)} // Aumenta 20 ventas al mostrar
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Ver más
+              </button>
+            </div>
+          )}
 
 
       {/* Historial de Devoluciones */}
@@ -791,15 +791,15 @@ const formatearFechaHora = (fecha) => {
           <div className="modal-content bg-white rounded-lg shadow-lg w-96 p-6">
             <h3 className="text-xl font-semibold text-gray-800 mb-4">{ventaData.editing ? 'Editar Venta' : 'Agregar Venta'}</h3>
             
-<div className="mb-4">
-  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Venta</label>
-  <input
-    type="datetime-local"
-    value={ventaData.fechadeVenta}
-    onChange={(e) => setVentaData({ ...ventaData, fechadeVenta: e.target.value })}
-    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-  />
-</div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Venta</label>
+              <input
+                type="datetime-local"
+                value={ventaData.fechadeVenta}
+                onChange={(e) => setVentaData({ ...ventaData, fechadeVenta: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
             {/* Colaborador Select */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Colaborador</label>

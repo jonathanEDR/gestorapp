@@ -305,7 +305,34 @@ const handleRangeChange = (range) => {
     Histórico
   </button>
 </div>
-
+       {/* Indicador de rango seleccionado */}
+          <div className="mt-4 flex items-center gap-3">
+            <div className="hidden lg:block w-px h-8 bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
+            <div className="bg-gradient-to-r from-slate-50 to-gray-50 px-4 py-2 rounded-xl border border-gray-200/50">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                  selectedRange === 'day' ? 'bg-blue-400' :
+                  selectedRange === 'week' ? 'bg-green-400' :
+                  selectedRange === 'month' ? 'bg-purple-400' :
+                  selectedRange === 'year' ? 'bg-amber-400' :
+                  'bg-gray-400'
+                }`}></div>
+                <span className="text-sm font-medium text-gray-700">
+                  {selectedRange === 'historical' 
+                    ? 'Todos los registros'
+                    : selectedRange === 'day'
+                    ? 'Hoy'
+                    : selectedRange === 'week'
+                    ? 'Semana actual (Lun - Dom)'
+                    : selectedRange === 'month'
+                    ? `Mes de ${new Date().toLocaleString('es-ES', { month: 'long' })}`
+                    : `Año ${new Date().getFullYear()}`
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+          
 {/* Gráfico de cobros */}
 <div className="mb-8">
   {cobros.length > 0 ? (

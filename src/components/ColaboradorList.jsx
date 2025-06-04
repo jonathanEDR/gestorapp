@@ -240,6 +240,7 @@ const handleSectionChange = (section) => {
       <h2 className="text-xl font-bold mb-6 text-gray-800">
         Gráfico de Gestión Personal
       </h2>
+      
       <div className="h-[500px] w-full">
         <GestionPersonalChart registros={registros} />
       </div>
@@ -253,94 +254,94 @@ const handleSectionChange = (section) => {
       <h3 className="text-xl font-semibold text-gray-800 mb-6">{editing ? 'Editar Colaborador' : 'Agregar Colaborador'}</h3>
 
       {/* Campos de formulario */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700">Nombre:</label>
-        <input
-          type="text"
-          value={newColaborador.nombre}
-          onChange={(e) => setNewColaborador({ ...newColaborador, nombre: e.target.value })}
-          className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-      </div>
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700">Email:</label>
-        <input
-          type="email"
-          value={newColaborador.email}
-          onChange={(e) => setNewColaborador({ ...newColaborador, email: e.target.value })}
-          className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-      </div>
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700">Teléfono:</label>
-        <input
-          type="text"
-          value={newColaborador.telefono}
-          onChange={(e) => setNewColaborador({ ...newColaborador, telefono: e.target.value })}
-          className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-      </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Nombre:</label>
+          <input
+            type="text"
+            value={newColaborador.nombre}
+            onChange={(e) => setNewColaborador({ ...newColaborador, nombre: e.target.value })}
+            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Email:</label>
+          <input
+            type="email"
+            value={newColaborador.email}
+            onChange={(e) => setNewColaborador({ ...newColaborador, email: e.target.value })}
+            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700">Teléfono:</label>
+          <input
+            type="text"
+            value={newColaborador.telefono}
+            onChange={(e) => setNewColaborador({ ...newColaborador, telefono: e.target.value })}
+            className="w-full px-4 py-2 mt-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
 
-<div className="mb-4">
-  <label className="block text-gray-700 text-sm font-bold mb-2">
-    Departamento *
-  </label>
-  <select
-    name="departamento"
-    value={newColaborador.departamento}
-    onChange={(e) => setNewColaborador({ ...newColaborador, departamento: e.target.value })}
-    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-    required
-  >
-    <option value="">Seleccione un departamento</option>
-    {departamentos.map(dep => (
-      <option key={dep} value={dep}>{dep}</option>
-    ))}
-  </select>
-</div>
+  <div className="mb-4">
+    <label className="block text-gray-700 text-sm font-bold mb-2">
+      Departamento *
+    </label>
+    <select
+      name="departamento"
+      value={newColaborador.departamento}
+      onChange={(e) => setNewColaborador({ ...newColaborador, departamento: e.target.value })}
+      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+      required
+    >
+      <option value="">Seleccione un departamento</option>
+      {departamentos.map(dep => (
+        <option key={dep} value={dep}>{dep}</option>
+      ))}
+    </select>
+  </div>
 
-<div className="mb-4">
-  <label className="block text-gray-700 text-sm font-bold mb-2">
-    Sueldo *
-  </label>
-  <input
-    type="number"
-    value={newColaborador.sueldo}
-    onChange={(e) => setNewColaborador({ ...newColaborador, sueldo: e.target.value })}
-    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-    required
-  />
-</div>
+  <div className="mb-4">
+    <label className="block text-gray-700 text-sm font-bold mb-2">
+      Sueldo *
+    </label>
+    <input
+      type="number"
+      value={newColaborador.sueldo}
+      onChange={(e) => setNewColaborador({ ...newColaborador, sueldo: e.target.value })}
+      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+      required
+    />
+  </div>
 
 
-      {/* Botones del modal */}
-      <div className="flex space-x-4 justify-end">
-        <button
-          onClick={handleAddOrEditColaborador}
-          disabled={isSubmitting}
-          className={`px-6 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600
-            ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          {isSubmitting ? 'Guardando...' : (editing ? 'Actualizar' : 'Agregar')}
-        </button>
-        {editing && (
+        {/* Botones del modal */}
+        <div className="flex space-x-4 justify-end">
           <button
-            onClick={() => handleDeleteColaborador(currentColaboradorId)}
-            className="px-6 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600"
+            onClick={handleAddOrEditColaborador}
+            disabled={isSubmitting}
+            className={`px-6 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600
+              ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            Borrar
+            {isSubmitting ? 'Guardando...' : (editing ? 'Actualizar' : 'Agregar')}
           </button>
-        )}
-        <button
-          onClick={handleCancelEdit}
-          className="px-6 py-2 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600"
-        >
-          Cancelar
-        </button>
+          {editing && (
+            <button
+              onClick={() => handleDeleteColaborador(currentColaboradorId)}
+              className="px-6 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600"
+            >
+              Borrar
+            </button>
+          )}
+          <button
+            onClick={handleCancelEdit}
+            className="px-6 py-2 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600"
+          >
+            Cancelar
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-)}
+  )}
 
 
       {isLoading ? (

@@ -296,8 +296,9 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
       devolucionesValues: timeIntervals.map(interval => groupedDevoluciones[interval.key]),
       ventasNetasValues: timeIntervals.map(interval => groupedVentasNetas[interval.key])
     };
-  }, [filteredData, devoluciones, selectedRange]);
+  }, [filteredData, devoluciones, selectedRange, ]);
 
+  
   // Datos del gráfico
   const chartData = {
     labels: groupedData.labels,
@@ -391,7 +392,6 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
       default: return 'Tiempo';
     }
   }
-
   // Renderizado
   if (filteredData.length === 0) {
     return (
@@ -401,9 +401,66 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
     );
   }
 
-  return (
-    <div className="bg-white p-4 rounded-lg shadow-md" style={{ height: '400px' }}>
-      <Line data={chartData} options={chartOptions} />
+
+    return (
+    <div className="bg-white rounded-lg shadow-md">
+      <div className="p-4">
+        <div style={{ height: '450px', width: '100%' }}>
+          <Line data={chartData} options={chartOptions} />
+        </div>
+      </div>
+
+      {/* Resumen en cards con los totales de ventas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border-t border-gray-200">
+        <div className="bg-emerald-50 p-4 rounded-lg">
+          <h4 className="text-emerald-700 font-semibold text-sm">
+            Ventas Brutas - {getTimeRangeTitle(selectedRange)}
+          </h4>
+          <p className="text-xl font-bold">
+            S/ {groupedData.ventasValues.reduce((a, b) => a + b, 0).toFixed(2)}
+          </p>
+          <p className="text-xs text-emerald-600 mt-1">
+            {selectedRange === 'day' ? 'Hoy' : 
+             selectedRange === 'week' ? 'Esta semana' :
+             selectedRange === 'month' ? 'Este mes' :
+             selectedRange === 'year' ? 'Este año' : 'Total histórico'}
+          </p>
+        </div>
+
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h4 className="text-blue-700 font-semibold text-sm">
+            Ventas Netas - {getTimeRangeTitle(selectedRange)}
+          </h4>
+          <p className="text-xl font-bold">
+            S/ {groupedData.ventasNetasValues.reduce((a, b) => a + b, 0).toFixed(2)}
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            {((groupedData.ventasNetasValues.reduce((a, b) => a + b, 0) / groupedData.ventasValues.reduce((a, b) => a + b, 0)) * 100).toFixed(1)}% de ventas brutas
+          </p>
+        </div>
+
+        <div className="bg-red-50 p-4 rounded-lg">
+          <h4 className="text-red-700 font-semibold text-sm">
+            Devoluciones - {getTimeRangeTitle(selectedRange)}
+          </h4>
+          <p className="text-xl font-bold">
+            S/ {groupedData.devolucionesValues.reduce((a, b) => a + b, 0).toFixed(2)}
+          </p>
+          <p className="text-xs text-red-600 mt-1">
+            {((groupedData.devolucionesValues.reduce((a, b) => a + b, 0) / groupedData.ventasValues.reduce((a, b) => a + b, 0)) * 100).toFixed(1)}% de ventas brutas
+          </p>
+        </div>        <div className="bg-indigo-50 p-4 rounded-lg">
+          <h4 className="text-indigo-700 font-semibold text-sm">
+            Cantidad Vendida - {getTimeRangeTitle(selectedRange)}
+          </h4>
+          <p className="text-xl font-bold">
+            {filteredData.reduce((total, venta) => total + (parseInt(venta.cantidad) || 0), 0)} unidades
+          </p>
+          <p className="text-xs text-indigo-600 mt-1">
+            En {filteredData.length} transacciones
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

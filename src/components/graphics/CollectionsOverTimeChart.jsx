@@ -281,6 +281,37 @@ const groupedData = useMemo(() => {
   };
 }, [filteredData, selectedRange]);
 
+  const calculateTotals = useMemo(() => {
+    if (!filteredData.length) {
+      return {
+        totalCobros: 0,
+        totalYape: 0,
+        totalEfectivo: 0,
+        totalGastos: 0
+      };
+    }
+
+    return filteredData.reduce((acc, cobro) => {
+      const yape = parseFloat(cobro.yape || 0);
+      const efectivo = parseFloat(cobro.efectivo || 0);
+      const gastos = parseFloat(cobro.gastosImprevistos || 0);
+
+      return {
+        totalCobros: acc.totalCobros + yape + efectivo,
+        totalYape: acc.totalYape + yape,
+        totalEfectivo: acc.totalEfectivo + efectivo,
+        totalGastos: acc.totalGastos + gastos
+      };
+    }, {
+      totalCobros: 0,
+      totalYape: 0,
+      totalEfectivo: 0,
+      totalGastos: 0
+    });
+  }, [filteredData]);
+
+
+
 
 const chartData = {
   labels: groupedData.labels,
@@ -450,35 +481,60 @@ const chartData = {
         </div>
       </div>
 
-      {/* Resumen en cards debajo del gráfico */}
+           {/* Resumen en cards con los nuevos totales */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border-t border-gray-200">
         <div className="bg-blue-50 p-4 rounded-lg">
-          <h4 className="text-blue-700 font-semibold text-sm">Total Cobros</h4>
+          <h4 className="text-blue-700 font-semibold text-sm">
+            Total Cobros - {getTimeRangeTitle(selectedRange)}
+          </h4>
           <p className="text-xl font-bold">
-            S/ {groupedData.values.reduce((a, b) => a + b, 0).toFixed(2)}
+            S/ {calculateTotals.totalCobros.toFixed(2)}
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            {selectedRange === 'day' ? 'Hoy' : 
+             selectedRange === 'week' ? 'Esta semana' :
+             selectedRange === 'month' ? 'Este mes' :
+             selectedRange === 'year' ? 'Este año' : 'Total histórico'}
           </p>
         </div>
+        
         <div className="bg-cyan-50 p-4 rounded-lg">
-          <h4 className="text-cyan-700 font-semibold text-sm">Total Yape</h4>
+          <h4 className="text-cyan-700 font-semibold text-sm">
+            Total Yape - {getTimeRangeTitle(selectedRange)}
+          </h4>
           <p className="text-xl font-bold">
-            S/ {groupedData.yapeValues.reduce((a, b) => a + b, 0).toFixed(2)}
+            S/ {calculateTotals.totalYape.toFixed(2)}
+          </p>
+          <p className="text-xs text-cyan-600 mt-1">
+            {((calculateTotals.totalYape / calculateTotals.totalCobros) * 100).toFixed(1)}% del total
           </p>
         </div>
+
         <div className="bg-orange-50 p-4 rounded-lg">
-          <h4 className="text-orange-700 font-semibold text-sm">Total Efectivo</h4>
+          <h4 className="text-orange-700 font-semibold text-sm">
+            Total Efectivo - {getTimeRangeTitle(selectedRange)}
+          </h4>
           <p className="text-xl font-bold">
-            S/ {groupedData.efectivoValues.reduce((a, b) => a + b, 0).toFixed(2)}
+            S/ {calculateTotals.totalEfectivo.toFixed(2)}
+          </p>
+          <p className="text-xs text-orange-600 mt-1">
+            {((calculateTotals.totalEfectivo / calculateTotals.totalCobros) * 100).toFixed(1)}% del total
           </p>
         </div>
+
         <div className="bg-red-50 p-4 rounded-lg">
-          <h4 className="text-red-700 font-semibold text-sm">Total Gastos</h4>
+          <h4 className="text-red-700 font-semibold text-sm">
+            Total Gastos - {getTimeRangeTitle(selectedRange)}
+          </h4>
           <p className="text-xl font-bold">
-            S/ {groupedData.gastosValues.reduce((a, b) => a + b, 0).toFixed(2)}
+            S/ {calculateTotals.totalGastos.toFixed(2)}
+          </p>
+          <p className="text-xs text-red-600 mt-1">
+            {((calculateTotals.totalGastos / calculateTotals.totalCobros) * 100).toFixed(1)}% del total
           </p>
         </div>
       </div>
     </div>
   );
 };
-
 export default CollectionsOverTimeChart;
