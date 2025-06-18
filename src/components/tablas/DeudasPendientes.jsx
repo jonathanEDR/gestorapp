@@ -1,241 +1,244 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
-import api from '../../services/api';  // Asegúrate de que la ruta sea correcta
+import api from '../../services/api';
 
 const DeudasPendientes = () => {
   const { getToken } = useAuth();
-  const [deudasColaboradores, setDeudasColaboradores] = useState([]);
+  const [ventasPendientes, setVentasPendientes] = useState([]);
   const [deudaRange, setDeudaRange] = useState('month');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Función para obtener deudas detalladas
-// Filtrar las ventas y cobros dentro del rango de fechas
-const fetchDeudasDetalladas = useCallback(async () => {
-  try {
-    setLoading(true);
-    const token = await getToken();
-    if (!token) {
-      alert('No estás autorizado');
-      return;
+  // Función optimizada para obtener ventas pendientes
+  const fetchVentasPendientes = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = await getToken();
+      if (!token) {
+        setError('No estás autorizado');
+        return;
+      }
+
+      console.log('🔍 Obteniendo ventas pendientes...');
+      
+      // Usar la nueva ruta optimizada que ya creamos
+      const response = await api.get('/cobros/ventas-pendientes-individuales', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const ventasConDeuda = response.data || [];
+      console.log('📊 Ventas con deuda obtenidas:', ventasConDeuda.length);
+      
+      // Filtrar por rango de fechas si es necesario
+      const ventasFiltradas = filtrarVentasPorRango(ventasConDeuda, deudaRange);
+      
+      setVentasPendientes(ventasFiltradas);
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ Error al obtener ventas pendientes:', error);
+      setError('Error al cargar las deudas pendientes: ' + (error.response?.data?.message || error.message));
+      setVentasPendientes([]);
+      setLoading(false);
     }
+  }, [getToken, deudaRange]);
 
+  // Función para filtrar ventas por rango de fechas
+  const filtrarVentasPorRango = (ventas, range) => {
+    if (range === 'historical') return ventas;
+    
     const now = new Date();
-    let startDate = new Date();
-    let endDate = new Date();
-
-    // Determinar el rango de fechas según deudaRange
-    switch (deudaRange) {
+    let fechaLimite = new Date();
+    
+    switch (range) {
       case 'day':
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
+        fechaLimite.setHours(0, 0, 0, 0);
         break;
       case 'week':
-        startDate.setDate(now.getDate() - now.getDay());  // Inicio de la semana
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setDate(startDate.getDate() + 6);  // Fin de la semana
-        endDate.setHours(23, 59, 59, 999);
+        fechaLimite.setDate(now.getDate() - 7);
         break;
       case 'month':
-        startDate.setDate(1);  // Primer día del mes
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setMonth(now.getMonth() + 1, 0);  // Último día del mes anterior
-        endDate.setHours(23, 59, 59, 999);
+        fechaLimite.setMonth(now.getMonth() - 1);
         break;
       case 'year':
-        startDate.setMonth(0, 1);  // Primer día del año
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setMonth(11, 31);  // Último día del año
-        endDate.setHours(23, 59, 59, 999);
-        break;
-      case 'historical':
-        startDate = null;
-        endDate = null;
+        fechaLimite.setFullYear(now.getFullYear() - 1);
         break;
       default:
-        startDate.setDate(1);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setMonth(now.getMonth() + 1, 0);
-        endDate.setHours(23, 59, 59, 999);
-        break;
+        return ventas;
     }
-
-    // Obtener ventas y cobros en paralelo con el filtro de fecha
-    const [ventasResponse, cobrosResponse] = await Promise.all([
-      api.get('/ventas', {
-        headers: { 'Authorization': `Bearer ${token}` },
-        params: {
-          startDate: startDate ? startDate.toISOString() : null,
-          endDate: endDate ? endDate.toISOString() : null
-        }
-      }),
-      api.get('/cobros', {
-        headers: { 'Authorization': `Bearer ${token}` },
-        params: {
-          startDate: startDate ? startDate.toISOString() : null,
-          endDate: endDate ? endDate.toISOString() : null
-        }
-      })
-    ]);
-
-    // Procesar ventas y cobros por colaborador
-    const deudasPorColaborador = {};
-
-    // Procesar ventas
-    ventasResponse.data.ventas.forEach(venta => {
-      const fechaVenta = new Date(venta.fechadeVenta || venta.fechaVenta);
-
-      // Filtrar solo las ventas que están dentro del rango de fechas
-      if (startDate && fechaVenta < startDate) return;
-      if (endDate && fechaVenta > endDate) return;
-
-      const colaboradorId = venta.colaboradorId._id;
-      if (!deudasPorColaborador[colaboradorId]) {
-        deudasPorColaborador[colaboradorId] = {
-          colaboradorId: colaboradorId,
-          colaboradorNombre: venta.colaboradorId.nombre,
-          productos: {},
-          totalDeuda: 0,
-          cobrado: 0,
-          deudaPendiente: 0, // Iniciar deuda pendiente en 0
-          fechaVenta: fechaVenta, // Guardamos la fecha de venta aquí
-        };
-      }
-
-      // Procesar la venta
-      const producto = venta.productoId;
-      const nombreProducto = producto.nombre;
-      const montoVenta = Number(venta.montoTotal);
-
-      if (!deudasPorColaborador[colaboradorId].productos[nombreProducto]) {
-        deudasPorColaborador[colaboradorId].productos[nombreProducto] = {
-          cantidad: 0,
-          montoTotal: 0
-        };
-      }
-
-      deudasPorColaborador[colaboradorId].productos[nombreProducto].cantidad += venta.cantidad;
-      deudasPorColaborador[colaboradorId].productos[nombreProducto].montoTotal += montoVenta;
-      deudasPorColaborador[colaboradorId].totalDeuda += montoVenta;
+    
+    return ventas.filter(venta => {
+      if (!venta.fechaVenta) return true; // Incluir ventas sin fecha
+      const fechaVenta = new Date(venta.fechaVenta);
+      return fechaVenta >= fechaLimite;
     });
+  };
 
-    // Procesar cobros
-    cobrosResponse.data.cobros.forEach(cobro => {
-      const fechaCobro = new Date(cobro.fechaPago || cobro.fechaCobro);
-
-      // Filtrar solo los cobros dentro del rango de fechas
-      if (startDate && fechaCobro < startDate) return;
-      if (endDate && fechaCobro > endDate) return;
-
-      const colaboradorId = typeof cobro.colaboradorId === 'object' ? cobro.colaboradorId._id : cobro.colaboradorId;
-
-      if (deudasPorColaborador[colaboradorId]) {
-        const montoPagado = Number(cobro.montoPagado || 0);
-        deudasPorColaborador[colaboradorId].cobrado += montoPagado;
-
-        // Actualizar deuda pendiente
-        deudasPorColaborador[colaboradorId].deudaPendiente = deudasPorColaborador[colaboradorId].totalDeuda - deudasPorColaborador[colaboradorId].cobrado;
-      }
-    });
-
-    // Filtrar y ordenar las deudas para mostrar en la UI
-    const deudasPendientes = Object.values(deudasPorColaborador)
-      .map(deuda => {
-        return {
-          ...deuda,
-          deudaPendiente: deuda.totalDeuda - deuda.cobrado // Aseguramos que la deuda pendiente se calcule correctamente
-        };
-      })
-      .filter(deuda => deuda.deudaPendiente > 0) // Solo mostrar deudas pendientes
-      .sort((a, b) => b.deudaPendiente - a.deudaPendiente); // Ordenar por deuda pendiente
-
-    setDeudasColaboradores(deudasPendientes);
-    setLoading(false);
-
-  } catch (error) {
-    console.error('Error al obtener deudas detalladas:', error);
-    alert('Error al obtener las deudas detalladas');
-    setLoading(false);
-  }
-}, [getToken, deudaRange]);
-
-
-  
   useEffect(() => {
-    fetchDeudasDetalladas();
-  }, [fetchDeudasDetalladas, deudaRange]);
+    fetchVentasPendientes();
+  }, [fetchVentasPendientes]);
 
   const handleDeudaRangeChange = (range) => {
     setDeudaRange(range);
   };
 
+  // Función para obtener detalles de venta (si es necesario)
+  const getDetallesVenta = useCallback(async (ventaId) => {
+    try {
+      const token = await getToken();
+      const response = await api.get(`/ventas/${ventaId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return response.data?.detalles || [];
+    } catch (error) {
+      console.error('Error al obtener detalles de venta:', error);
+      return [];
+    }
+  }, [getToken]);
+
+  const calcularResumen = () => {
+    const totalDeuda = ventasPendientes.reduce((sum, venta) => sum + (venta.deudaPendiente || 0), 0);
+    const totalVentas = ventasPendientes.length;
+    const colaboradoresUnicos = [...new Set(ventasPendientes.map(v => v.colaboradorNombre))].length;
+    
+    return { totalDeuda, totalVentas, colaboradoresUnicos };
+  };
+
+  const { totalDeuda, totalVentas, colaboradoresUnicos } = calcularResumen();
   return (
     <div className="mt-8">
       <h3 className="text-xl font-semibold text-gray-800 mb-4">Deudas Pendientes</h3>
-      <div className="flex flex-wrap space-x-2 mb-4">
-        <button onClick={() => handleDeudaRangeChange('day')} className={`px-4 py-2 rounded mb-2 transition-colors ${deudaRange === 'day' ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}>Deudas de Hoy</button>
-        <button onClick={() => handleDeudaRangeChange('week')} className={`px-4 py-2 rounded mb-2 transition-colors ${deudaRange === 'week' ? 'bg-teal-600 text-white' : 'bg-teal-100 text-teal-700 hover:bg-teal-200'}`}>Deudas de la Semana</button>
-        <button onClick={() => handleDeudaRangeChange('month')} className={`px-4 py-2 rounded mb-2 transition-colors ${deudaRange === 'month' ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-700 hover:bg-orange-200'}`}>Deudas del Mes</button>
-        <button onClick={() => handleDeudaRangeChange('year')} className={`px-4 py-2 rounded mb-2 transition-colors ${deudaRange === 'year' ? 'bg-pink-600 text-white' : 'bg-pink-100 text-pink-700 hover:bg-pink-200'}`}>Deudas del Año</button>
-        <button onClick={() => handleDeudaRangeChange('historical')} className={`px-4 py-2 rounded mb-2 transition-colors ${deudaRange === 'historical' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Deudas Históricas</button>
+      
+      {/* Filtros por rango de fechas */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <button 
+          onClick={() => handleDeudaRangeChange('day')} 
+          className={`px-4 py-2 rounded mb-2 transition-colors ${
+            deudaRange === 'day' ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+          }`}
+        >
+          Deudas de Hoy
+        </button>
+        <button 
+          onClick={() => handleDeudaRangeChange('week')} 
+          className={`px-4 py-2 rounded mb-2 transition-colors ${
+            deudaRange === 'week' ? 'bg-teal-600 text-white' : 'bg-teal-100 text-teal-700 hover:bg-teal-200'
+          }`}
+        >
+          Deudas de la Semana
+        </button>
+        <button 
+          onClick={() => handleDeudaRangeChange('month')} 
+          className={`px-4 py-2 rounded mb-2 transition-colors ${
+            deudaRange === 'month' ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+          }`}
+        >
+          Deudas del Mes
+        </button>
+        <button 
+          onClick={() => handleDeudaRangeChange('year')} 
+          className={`px-4 py-2 rounded mb-2 transition-colors ${
+            deudaRange === 'year' ? 'bg-pink-600 text-white' : 'bg-pink-100 text-pink-700 hover:bg-pink-200'
+          }`}
+        >
+          Deudas del Año
+        </button>
+        <button 
+          onClick={() => handleDeudaRangeChange('historical')} 
+          className={`px-4 py-2 rounded mb-2 transition-colors ${
+            deudaRange === 'historical' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Deudas Históricas
+        </button>
       </div>
 
+      {/* Resumen de estadísticas */}
+      {!loading && ventasPendientes.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="text-red-600 text-lg font-bold">S/ {totalDeuda.toFixed(2)}</div>
+            <div className="text-red-700 text-sm">Total Deuda Pendiente</div>
+          </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="text-blue-600 text-lg font-bold">{totalVentas}</div>
+            <div className="text-blue-700 text-sm">Ventas con Deuda</div>
+          </div>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="text-green-600 text-lg font-bold">{colaboradoresUnicos}</div>
+            <div className="text-green-700 text-sm">Colaboradores con Deuda</div>
+          </div>
+        </div>
+      )}
+
+      {/* Mostrar errores */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="text-red-700">{error}</div>
+        </div>
+      )}
+
+      {/* Contenido principal */}
       {loading ? (
         <div className="flex justify-center items-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+          <span className="ml-3 text-gray-600">Cargando deudas pendientes...</span>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {deudasColaboradores.length > 0 ? (
-            deudasColaboradores.map((deuda) => (
-              <div key={deuda.colaboradorId} className="bg-white rounded-lg shadow-md p-4 border border-gray-200">
+          {ventasPendientes.length > 0 ? (
+            ventasPendientes.map((venta) => (<div key={venta._id} className="bg-white rounded-lg shadow-md p-4 border border-gray-200">
                 <div className="text-xs text-gray-500 mb-2">
-  Fecha de Venta: {deuda.fechaVenta ? new Date(deuda.fechaVenta).toLocaleDateString() : 'No disponible'}
+                  Venta ID: #{venta.ventaId} | Fecha: {venta.fechaFormateada}
                 </div>
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="text-lg font-semibold text-gray-800">{deuda.colaboradorNombre}</h4>
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-lg font-semibold text-gray-800">{venta.colaboradorNombre}</h4>
                   <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-                    Deuda: S/ {deuda.deudaPendiente.toFixed(2)}
+                    Deuda: S/ {venta.deudaPendiente.toFixed(2)}
                   </span>
                 </div>
-                
-                {/* Lista de productos */}
-                <div className="space-y-2">
-                  {Object.entries(deuda.productos || {}).map(([nombreProducto, info]) => (
-                    <div key={nombreProducto} className="flex justify-between items-center">
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-700">{nombreProducto}</div>
-                        <div className="text-xs text-gray-500">
-                          Cantidad: {info.cantidad} unidades
-                        </div>
-                      </div>
-                      <div className="text-sm font-semibold text-gray-800">
-                        S/ {info.montoTotal.toFixed(2)}
-                      </div>
-                    </div>
-                  ))}
+                <div className="mb-2">
+                  <span className="text-sm text-gray-600 font-medium">Productos:</span>
+                  <ul className="list-disc ml-5 text-sm">
+                    {venta.detalles && venta.detalles.length > 0 ? (
+                      venta.detalles.map((det, idx) => (
+                        <li key={det._id || idx}>
+                          {det.productoId?.nombre || 'Producto sin nombre'} x {det.cantidad || 0}
+                          {det.productoId?.precio && (
+                            <span className="text-gray-500"> - S/ {det.productoId.precio.toFixed(2)}</span>
+                          )}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-gray-400">Sin detalles de productos</li>
+                    )}
+                  </ul>
                 </div>
-                
-                {/* Línea divisoria */}
-                <div className="my-4 border-t border-gray-200"></div>
-                
-                {/* Totales */}
-<div className="space-y-2">
-  <div className="flex justify-between items-center text-sm">
-    <span className="font-medium text-gray-600">Total Vendido:</span>
-    <span className="font-bold text-gray-800">S/ {deuda.totalDeuda.toFixed(2)}</span>
-  </div>
-  <div className="flex justify-between items-center text-sm">
-    <span className="font-medium text-gray-600">Total Pagado:</span>
-    <span className="font-bold text-green-600">
-      {deuda.cobrado > 0 ? `S/ ${deuda.cobrado.toFixed(2)}` : 'Sin pagos'}
-    </span>
-  </div>
-  <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100">
-    <span className="font-medium text-gray-600">Deuda Pendiente:</span>
-    <span className="font-bold text-red-600">S/ {deuda.deudaPendiente.toFixed(2)}</span>
-  </div>
-</div>
-
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Venta:</span>
+                    <span className="font-bold text-gray-800">S/ {(venta.montoTotal || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Debe:</span>
+                    <span className="font-bold text-orange-600">S/ {(venta.deudaTotal || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Pagado:</span>
+                    <span className="font-bold text-green-600">S/ {(venta.sumaPagos || 0).toFixed(2)}</span>
+                  </div>
+                  {venta.sumaDevoluciones > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Devoluciones:</span>
+                      <span className="font-bold text-blue-600">S/ {venta.sumaDevoluciones.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 border-t border-gray-100">
+                    <span className="text-gray-600 font-medium">Deuda Pendiente:</span>
+                    <span className="font-bold text-red-600">S/ {venta.deudaPendiente.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
             ))
           ) : (

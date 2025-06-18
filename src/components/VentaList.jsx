@@ -1,990 +1,809 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import api from '../services/api'; // Ajusta la ruta si es necesario
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAuth } from '@clerk/clerk-react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import api, { ventasAPI } from '../services/api';
 import SalesOverTimeChart from './graphics/SalesOverTimeChart';
-import ProductoSearchSelect from './components/ProductoSearchSelect'; // Ajusta la ruta
-
-
-
+import VentaModal from './components/VentaModal';
+import DevolucionModal from './components/DevolucionModal';
+import DevolucionesList from './DevolucionesList';
 
 function VentaList() {
-  const getFechaActualString = () => {
-    const hoy = new Date();
-    // Formatear fecha y hora al formato requerido por datetime-local
-    const año = hoy.getFullYear();
-    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-    const dia = String(hoy.getDate()).padStart(2, '0');
-    const hora = String(hoy.getHours()).padStart(2, '0');
-    const minutos = String(hoy.getMinutes()).padStart(2, '0');
-    
-    return `${año}-${mes}-${dia}T${hora}:${minutos}`;
-  };
   const { getToken } = useAuth();
-  const [ventaData, setVentaData] = useState({
-    colaboradorId: '',
-    productoId: '',
-    cantidad: 0,
-    montoTotal: 0,
-    estadoPago: 'Pendiente',
-    cantidadPagada: 0,
-    editing: false,
-    currentVentaId: null,
-    showForm: false,
-  });
+  
+  // Estados principales
   const [ventas, setVentas] = useState([]);
   const [colaboradores, setColaboradores] = useState([]);
   const [productos, setProductos] = useState([]);
-  const [productoPrecio, setProductoPrecio] = useState(0);
-  const [cantidadDisponible, setCantidadDisponible] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Estados de UI
   const [selectedRange, setSelectedRange] = useState('month');
-  const [devoluciones, setDevoluciones] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedProducto, setSelectedProducto] = useState(null);
-  const [cantidadDevuelta, setCantidadDevuelta] = useState(0);
-  const [motivo, setMotivo] = useState("");
-  const [devolucionesCurrentPage] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
   const [ventasLimit, setVentasLimit] = useState(20);
-  const [devolucionesLimit, setDevolucionesLimit] = React.useState(20); // mostrar 10 inicialmente
-const [fechaDevolucion, setFechaDevolucion] = useState(getFechaActualString());
-const [isSaving, setIsSaving] = useState(false);
-const [isSubmittingDevolucion, setIsSubmittingDevolucion] = useState(false);
-  
 
+  // Estados para devoluciones
+  const [processingDevolucion, setProcessingDevolucion] = useState(false);
+  const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
+  const [showDevolucionModal, setShowDevolucionModal] = useState(false);
+  const [devoluciones, setDevoluciones] = useState([]);
 
-const loadVentas = useCallback(async () => {
-  try {
-    const token = await getToken();
-    const response = await api.get('/ventas', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (response.data && response.data.ventas) {
-      setVentas(response.data.ventas);
-    } else {
-      console.error('Estructura de respuesta inválida:', response.data);
-      setVentas([]);
-    }
-  } catch (error) {
-    console.error('Error al cargar ventas:', error);
-    setError('Error al cargar las ventas');
-    setVentas([]);
-  }
-}, [getToken, setError]);
-
-const loadDevoluciones = useCallback(async () => {
-  try {
-    const token = await getToken();
-    const response = await api.get('/ventas/devoluciones', {
-      params: { page: devolucionesCurrentPage, limit: 10 },
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    if (response.data) {
-      setDevoluciones(response.data.devoluciones || []);
-    } else {
-      throw new Error('No se recibieron datos de devoluciones');
-    }
-  } catch (error) {
-    console.error('Error al cargar devoluciones:', error);
-    setError('Error al cargar las devoluciones: ' + error.message);
-    setDevoluciones([]);
-  }
-}, [getToken, devolucionesCurrentPage, setError]);
-
-// 2. Actualiza el useEffect incluyendo todas las dependencias necesarias
-useEffect(() => {
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-
+  // Función principal para cargar todos los datos
+  const fetchData = useCallback(async () => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const token = await getToken();
       if (!token) {
-        throw new Error('No estás autorizado');
+        throw new Error('No autorizado');
       }
 
-      const config = {
-        headers: { 'Authorization': `Bearer ${token}` }
-      };
-
-      // Cargar ventas y devoluciones
-      await Promise.all([
-        loadVentas(),
-        loadDevoluciones()
+      // Cargar todos los datos en paralelo
+      const [ventasResponse, colaboradoresResponse, productosResponse] = await Promise.all([
+        api.get('/ventas', { headers: { Authorization: `Bearer ${token}` } }),
+        api.get('/ventas/colaboradores', { headers: { Authorization: `Bearer ${token}` } }),
+        api.get('/ventas/productos', { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
-      // Cargar colaboradores y productos
-      const [colaboradoresRes, productosRes] = await Promise.all([
-        api.get('/ventas/colaboradores', config),
-        api.get('/ventas/productos', config)
-      ]);
+      // Procesar ventas
+      let ventasData = [];
+      if (Array.isArray(ventasResponse.data)) {
+        ventasData = ventasResponse.data;
+      } else if (ventasResponse.data.ventas && Array.isArray(ventasResponse.data.ventas)) {
+        ventasData = ventasResponse.data.ventas;
+      }      // Ordenar ventas por fecha descendente
+      ventasData.sort((a, b) => new Date(b.fechaVenta || b.fechadeVenta) - new Date(a.fechaVenta || a.fechadeVenta));
 
-      setColaboradores(colaboradoresRes.data);
-      setProductos(productosRes.data);
-      setLoading(false);
+      // Actualizar estados
+      setVentas(ventasData);
+      setColaboradores(colaboradoresResponse.data || []);
+      setProductos(productosResponse.data || []);
+
+      console.log('Datos cargados exitosamente:', {
+        ventas: ventasData.length,
+        colaboradores: colaboradoresResponse.data?.length || 0,
+        productos: productosResponse.data?.length || 0
+      });
+
     } catch (error) {
-      console.error('Error al obtener los datos:', error);
+      console.error('Error al cargar los datos:', error);
       setError(error.message || 'Error al cargar los datos');
-      setLoading(false);
-    }
-  };
-
-  fetchData();
-}, [getToken, loadVentas, loadDevoluciones]);
-
-  // Función para manejar el cambio de cantidad y recalcular monto total
-  const handleCantidadChange = (e) => {
-    const cantidad = parseInt(e.target.value, 10) || 0;
-    const montoTotal = cantidad * productoPrecio;
-    setVentaData((prevState) => ({
-      ...prevState,
-      cantidad,
-      montoTotal,
-    }));
-  };
-
-  // Función para manejar la selección de producto
-  const handleProductoChange = (e) => {
-    const productoId = e.target.value;
-    const producto = productos.find((prod) => prod._id === productoId);
-    setProductoPrecio(producto ? producto.precio : 0);
-    setCantidadDisponible(producto ? producto.cantidadRestante : 0);
-
-    setVentaData((prevState) => ({
-      ...prevState,
-      productoId,
-      montoTotal: prevState.cantidad * (producto ? producto.precio : 0),
-    }));
-  };
-
-
-  // Validación de la venta
-  const validateVenta = () => {
-    if (!ventaData.colaboradorId) {
-      alert('Debes seleccionar un colaborador.');
-      return false;
-    }
-    
-    if (!ventaData.productoId) {
-      alert('Debes seleccionar un producto.');
-      return false;
-    }
-    
-    if (ventaData.cantidad <= 0) {
-      alert('La cantidad debe ser mayor a cero.');
-      return false;
-    }
-    
-    if (ventaData.cantidad > cantidadDisponible) {
-      alert(`No puedes vender más de ${cantidadDisponible} unidades de este producto.`);
-      return false;
-    }
-    
-    if (ventaData.estadoPago === 'Parcial' && ventaData.cantidadPagada <= 0) {
-      alert('La cantidad pagada debe ser mayor a cero cuando el estado es Parcial.');
-      return false;
-    }
-    
-    if (ventaData.estadoPago === 'Pendiente' && ventaData.cantidadPagada !== 0) {
-      alert('La cantidad pagada debe ser cero cuando el estado es Pendiente.');
-      return false;
-    }
-    
-    if (ventaData.estadoPago === 'Pagado' && ventaData.cantidadPagada !== ventaData.montoTotal) {
-      alert('La cantidad pagada debe ser igual al monto total cuando el estado es Pagado.');
-      return false;
-    }
-    
-    return true;
-  };
-
-  // Función para agregar o editar la venta
-  const handleAddOrEditVenta = async () => {
-      if (!validateVenta()) return;
-
-  try {
-    setIsSaving(true); // Iniciamos el proceso de guardado
-
-    const token = await getToken();
-    if (!token) {
-      alert('No estás autorizado');
-      return;
-    }
-    // Si no hay fecha seleccionada, usar la fecha y hora actual
-    const fechaVenta = ventaData.fechadeVenta ? 
-      new Date(ventaData.fechadeVenta) : 
-      new Date();
-
-    const ventaDataToSend = {
-      ...ventaData,
-      fechadeVenta: fechaVenta.toISOString()
-    };
-
-    console.log('Enviando venta con fecha:', ventaDataToSend.fechadeVenta);
-
-    
-
-    if (ventaData.editing) {
-      await api.put(
-        `/ventas/${ventaData.currentVentaId}`,
-        ventaDataToSend,
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
-      alert('Venta actualizada exitosamente');
-    } else {
-      await api.post(
-        '/ventas',
-        ventaDataToSend,
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
-      alert('Venta creada exitosamente');
-    }
-
-    await loadVentas(token);
-    resetForm();
-  } catch (error) {
-    console.error('Error:', error);
-    alert('Error al procesar la venta: ' + (error.response ? error.response.data.message : error.message));
-  } finally {
-    setIsSaving(false);
-  }
-};
-
-  // Función para eliminar una venta
-const handleDeleteVenta = async (ventaId) => {
-  // Verificar si la venta tiene devoluciones
-  const devolucionesVenta = devoluciones.filter(d => d.ventaId._id === ventaId);
-  if (devolucionesVenta.length > 0) {
-    alert('No se puede eliminar una venta que tiene devoluciones asociadas');
-    return;
-  }
-  if (!window.confirm('¿Estás seguro de que deseas eliminar esta venta?')) {
-    return;
-  }
-
-  try {
-    const token = await getToken();
-    if (!token) {
-      alert('No estás autorizado');
-      return;
-    }
-
-    await api.delete(
-      `/ventas/${ventaId}`, 
-      { headers: { 'Authorization': `Bearer ${token}` } }
-    );
-    
-    await loadVentas(token);
-    alert('Venta eliminada exitosamente');
-  } catch (error) {
-    console.error('Error al eliminar la venta:', error);
-    alert('Error al eliminar la venta: ' + (error.response ? error.response.data.message : error.message));
-  }
-};
-
-  // Función para reiniciar el formulario
-  const resetForm = () => {
-    setVentaData({
-    fechadeVenta: getFechaActualString(), // Usar la nueva función que incluye hora
-
-      colaboradorId: '',
-      productoId: '',
-      cantidad: 0,
-      montoTotal: 0,
-      estadoPago: 'Pendiente',
-      cantidadPagada: 0,
-      editing: false,
-      currentVentaId: null,
-      showForm: false,
-    });
-    setProductoPrecio(0);
-    setCantidadDisponible(0);
-  };
-
-
-  // Alternar visibilidad del formulario
-const toggleFormVisibility = () => {
-  if (!ventaData.showForm) {
-    // Abrir formulario y setear fecha actual
-    setVentaData((prev) => ({
-      ...prev,
-      showForm: true,
-      fechadeVenta: getFechaActualString(),
-    }));
-  } else {
-    // Cerrar formulario y limpiar
-    resetForm();
-  }
-};
-
-
-    // Cambiar el rango de tiempo
-  const handleRangeChange = (range) => {
-    setSelectedRange(range);
-  };
-
-  useEffect(() => {
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const token = await getToken();
-      if (!token) {
-        throw new Error('No estás autorizado');
-      }
-
-      const config = {
-        headers: { 'Authorization': `Bearer ${token}` }
-      };
-
-      await Promise.all([
-        loadVentas(),
-        loadDevoluciones()
-      ]);
-
-      const [colaboradoresRes, productosRes] = await Promise.all([
-        api.get('/ventas/colaboradores', config),
-        api.get('/ventas/productos', config)
-      ]);
-
-      setColaboradores(colaboradoresRes.data);
-      setProductos(productosRes.data);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error al obtener los datos:', error);
-      setError(error.message || 'Error al cargar los datos');
-      setLoading(false);
-    }
-  };
-
-  fetchData();
-}, [getToken, loadVentas, loadDevoluciones, devolucionesCurrentPage]);
-  
-  // Función para abrir el modal de devolución y seleccionar el producto
-  const abrirModalDevolucion = (producto) => {
-    setSelectedProducto(producto); // Guardamos el producto seleccionado
-    setCantidadDevuelta(0); // Reiniciar cantidad devuelta
-    setMotivo(""); // Limpiar motivo
-    setIsModalVisible(true); // Mostrar el modal
-    setFechaDevolucion(getFechaActualString()); // Reiniciar fecha de devolución
-  };
-
-  // Función para cerrar el modal de devolución
-const handleRegistrarDevolucion = async () => {
-  if (!selectedProducto || !cantidadDevuelta || !motivo || !fechaDevolucion) {
-    alert("Por favor complete todos los campos");
-    return;
-  }
-
-  if (parseInt(cantidadDevuelta) > selectedProducto.cantidad) {
-    alert("La cantidad a devolver no puede ser mayor a la cantidad vendida");
-    return;
-  }
-
-  try {
-        setIsSubmittingDevolucion(true); // Iniciamos el proceso
-
-    const token = await getToken();
-    const precioUnitario = selectedProducto.montoTotal / selectedProducto.cantidad;
-    const montoDevolucion = precioUnitario * parseInt(cantidadDevuelta);
-
-    const devolucionData = {
-      ventaId: selectedProducto._id,
-      productoId: selectedProducto.productoId._id,
-      colaboradorId: selectedProducto.colaboradorId._id, // Importante: incluir el colaboradorId
-      cantidadDevuelta: parseInt(cantidadDevuelta),
-      montoDevolucion: parseFloat(montoDevolucion.toFixed(2)),
-      motivo,
-      fechaDevolucion: new Date(fechaDevolucion).toISOString() // Fecha actual en formato ISO
-    };
-
-    await api.post('/ventas/devoluciones', devolucionData, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    // Recargar tanto las ventas como las devoluciones
-    await Promise.all([
-      loadVentas(),
-      loadDevoluciones()
-    ]);
-
-    alert("Devolución registrada exitosamente");
-    
-    // Limpiar el estado del modal
-    setIsModalVisible(false);
-    setSelectedProducto(null);
-    setCantidadDevuelta(0);
-    setMotivo("");
-    setFechaDevolucion(getFechaActualString());
-  } catch (error) {
-    console.error('Error al registrar la devolución:', error);
-    alert(error.response?.data?.message || 'Error al registrar la devolución');
+      toast.error('Error al cargar los datos');
     } finally {
-    setIsSubmittingDevolucion(false); // Finalizamos el proceso
-  }
-};
-
-
-const handleEliminarDevolucion = async (devolucionId) => {
-  if (!window.confirm('¿Está seguro de eliminar esta devolución?')) {
-    return;
-  }
-
-  try {
-    const token = await getToken();
-    await api.delete(`/ventas/devoluciones/${devolucionId}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    // Recargar los datos
-    await Promise.all([
-      loadVentas(),
-      loadDevoluciones()
-    ]);
-
-    alert('Devolución eliminada correctamente');
-  } catch (error) {
-    console.error('Error al eliminar la devolución:', error);
-    alert(error.response?.data?.message || 'Error al eliminar la devolución');
-  }
-};
-
-// Agregar esto a la función que cierra el modal o crear una nueva
-const limpiarModal = () => {
-  setIsModalVisible(false);
-  setSelectedProducto(null);
-  setCantidadDevuelta(0);
-  setMotivo("");
-  setFechaDevolucion(getFechaActualString());
-};
-
-
-// Función para formatear la fecha de la venta
-const formatearFechaHora = (fecha) => {
-  if (!fecha) return '';
-  
-  try {
-    const fechaObj = new Date(fecha);
-    if (isNaN(fechaObj.getTime())) {
-      return 'Fecha inválida';
+      setLoading(false);
     }
+  }, [getToken]);
 
-    return fechaObj.toLocaleString('es-PE', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  } catch (error) {
-    console.error('Error al formatear fecha:', error);
-    return 'Error en fecha';
-  }
-};
+  // Cargar devoluciones por separado
+  const loadDevoluciones = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = await getToken();
+      if (!token) return;
 
-  // Renderizado condicional para estados de carga y error
-  if (loading) {
-    return <div className="p-4 text-center">Cargando datos...</div>;
-  }
+      const response = await api.get('/ventas/devoluciones', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-  if (error) {
-    return (
-      <div className="p-4 text-center text-red-600">
-        Error: {error}
-        <button 
-          onClick={() => window.location.reload()} 
-          className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-        >
-          Reintentar
-        </button>
+      setDevoluciones(response.data.devoluciones || []);
+    } catch (error) {
+      console.error('Error al cargar devoluciones:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [getToken]);
+  // Effect principal para cargar datos iniciales
+  useEffect(() => {
+    fetchData();
+    loadDevoluciones();
+  }, [fetchData, loadDevoluciones]);
+
+  // Función para cargar devoluciones (movida aquí)
+  const loadDevolucionesSecondary = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = await getToken();
+      
+      console.log('Intentando cargar devoluciones...'); // Debug log
+      
+      const response = await api.get('/ventas/devoluciones', {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Respuesta de devoluciones:', response.data); // Debug log
+
+      let devolucionesProcesadas = [];
+      if (response.data && Array.isArray(response.data.devoluciones)) {
+        devolucionesProcesadas = response.data.devoluciones;
+      } else if (Array.isArray(response.data)) {
+        devolucionesProcesadas = response.data;
+      }
+
+      console.log('Devoluciones procesadas:', devolucionesProcesadas); // Debug log
+      
+      setDevoluciones(devolucionesProcesadas);
+    } catch (error) {
+      console.error('Error detallado al cargar devoluciones:', {
+        mensaje: error.message,
+        respuesta: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
+      setError(error.message || 'Error al cargar las devoluciones');
+    } finally {
+      setLoading(false);
+    }
+  }, [getToken]);
+  // Memos optimizados
+  const salesChartComponent = useMemo(() => {
+    if (!Array.isArray(ventas) || ventas.length === 0) {
+      return (
+        <div className="mb-8 p-4 bg-gray-100 rounded-lg text-center">
+          <p className="text-gray-600">No hay datos de ventas para mostrar</p>
+        </div>
+      );
+    }
+      return (
+      <div className="mb-8">
+        <SalesOverTimeChart
+          ventas={ventas}
+          devoluciones={devoluciones}
+          selectedRange={selectedRange}
+        />
       </div>
     );
-  }
-
-  return (
-    <div className="list">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Ventas</h2>
+  }, [ventas, devoluciones, selectedRange]);
+  const handleSaveVenta = async (ventaPayload) => {
+    try {
+      setIsSaving(true);
+      const token = await getToken();
       
-            {/* Botones para seleccionar el rango de tiempo */}
-        <div className="mb-8">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => handleRangeChange('day')}
-              className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
-                selectedRange === 'day'
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-200/50'
-                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-blue-50'
-              }`}
-            >
-              <span className="relative z-10 text-sm">📅 Hoy</span>
-              {selectedRange === 'day' && (
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-xl blur opacity-30"></div>
-              )}
-            </button>
+      if (!token) {
+        throw new Error('No autorizado');
+      }
 
-            <button
-              onClick={() => handleRangeChange('week')}
-              className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
-                selectedRange === 'week'
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-200/50'
-                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-green-50'
-              }`}
-            >
-              <span className="relative z-10 text-sm">🗓️ Esta Semana</span>
-              {selectedRange === 'week' && (
-                <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 rounded-xl blur opacity-30"></div>
-              )}
-            </button>
+      console.log('Payload recibido:', ventaPayload); // Debug
 
-            <button
-              onClick={() => handleRangeChange('month')}
-              className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
-                selectedRange === 'month'
-                  ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-200/50'
-                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-purple-50'
-              }`}
-            >
-              <span className="relative z-10 text-sm">📊 Este Mes</span>
-              {selectedRange === 'month' && (
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-violet-400 rounded-xl blur opacity-30"></div>
-              )}
-            </button>
+      // Validar el payload antes de enviarlo
+      if (!ventaPayload.colaboradorId) {
+        throw new Error('Colaborador no especificado');
+      }
 
-            <button
-              onClick={() => handleRangeChange('year')}
-              className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
-                selectedRange === 'year'
-                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-200/50'
-                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-amber-50'
-              }`}
-            >
-              <span className="relative z-10 text-sm">📅 Este Año</span>
-              {selectedRange === 'year' && (
-                <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-orange-400 rounded-xl blur opacity-30"></div>
-              )}
-            </button>
+      if (!ventaPayload.detalles || !Array.isArray(ventaPayload.detalles) || ventaPayload.detalles.length === 0) {
+        throw new Error('No hay productos en la venta');
+      }
 
-            <button
-              onClick={() => handleRangeChange('historical')}
-              className={`relative px-5 py-2.5 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 ${
-                selectedRange === 'historical'
-                  ? 'bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg shadow-gray-200/50'
-                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <span className="relative z-10 text-sm">🏛️ Histórico</span>
-              {selectedRange === 'historical' && (
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-slate-400 rounded-xl blur opacity-30"></div>
-              )}
-            </button>
+      // Validar cada detalle y agregar el nombre del producto
+      const detallesConNombre = ventaPayload.detalles.map(detalle => {
+        if (!detalle.productoId) {
+          throw new Error('Producto no especificado');
+        }
+        if (!detalle.cantidad || detalle.cantidad <= 0) {
+          throw new Error(`Cantidad inválida en el producto`);
+        }
+        if (!detalle.precioUnitario || detalle.precioUnitario <= 0) {
+          throw new Error(`Precio inválido en el producto`);
+        }
+
+        const producto = productos.find(p => p._id === detalle.productoId);
+        if (!producto) {
+          throw new Error(`Producto no encontrado en el inventario`);
+        }
+
+        return {
+          ...detalle,
+          nombre: producto.nombre
+        };
+      });
+
+      // Crear el payload final con los nombres incluidos
+      const ventaPayloadCompleto = {
+        ...ventaPayload,
+        detalles: detallesConNombre,
+        fechaVenta: ventaPayload.fechaVenta || new Date().toISOString() // Usar fechaVenta
+      };
+
+      console.log('Payload a enviar:', ventaPayloadCompleto); // Debug
+
+      const response = await api.post('/ventas', ventaPayloadCompleto, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Respuesta del servidor:', response.data); // Debug
+
+      if (response.data) {
+        // Actualizar el estado local inmediatamente con la nueva venta
+        setVentas(prevVentas => {
+          const newVentas = Array.isArray(prevVentas) ? [...prevVentas] : [];
+          // Agregar la nueva venta al principio para que aparezca primero
+          newVentas.unshift({
+            ...response.data,
+            fechaVenta: response.data.fechaVenta || response.data.fechadeVenta || new Date().toISOString()
+          });
+          // Reordenar por fecha descendente
+          return newVentas.sort((a, b) => new Date(b.fechaVenta || b.fechadeVenta) - new Date(a.fechaVenta || a.fechadeVenta));
+        });
+
+        toast.success('Venta creada exitosamente');
+        handleCloseModal();
+
+        // Recargar los datos para asegurar sincronización (opcional, ya actualizamos el estado)
+        setTimeout(() => {
+          fetchData();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error al guardar la venta:', error);
+      console.error('Error detallado:', {
+        mensaje: error.message,
+        respuesta: error.response?.data,
+        stack: error.stack
+      });
+      const errorMessage = error.response?.data?.message || error.message || 'Error al procesar la venta';
+      toast.error(`Error al guardar la venta: ${errorMessage}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  const handleOpenModal = () => {
+    setIsModalVisible(true);
+  };
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+  };
+
+  const handleLoadMoreVentas = () => {
+    setVentasLimit(prev => prev + 20);
+  };
+
+  // Función para abrir el modal de devolución (ahora con useCallback para evitar warning)
+  const abrirModalDevolucion = useCallback((venta) => {
+    setVentaSeleccionada(venta);
+    setShowDevolucionModal(true);
+  }, []);
+
+  // Función para obtener devoluciones por venta
+  const getDevolucionesPorVenta = useCallback((venta) => {
+    if (!venta || !Array.isArray(devoluciones)) return [];
+
+    return devoluciones.filter(dev => {
+      const devVentaId = dev.ventaId?._id || dev.ventaId;
+      const ventaId = venta._id;
+      const match = devVentaId === ventaId;
+
+      // Log para debug
+      if (match) {
+        console.log(`Devolución encontrada para venta ${ventaId}:`, dev);
+      }
+
+      return match;
+    });
+  }, [devoluciones]);
+
+  // Memo para manejar ventas de forma segura
+  const ventasSeguras = useMemo(() => {
+    if (!Array.isArray(ventas)) return [];
+    return ventas.slice(0, ventasLimit).map(venta => ({
+      ...venta,
+      detalles: Array.isArray(venta.detalles) ? venta.detalles : [],
+      colaboradorId: venta.colaboradorId || { nombre: 'N/A' },
+      montoTotal: venta.montoTotal || 0,
+      estadoPago: venta.estadoPago || 'Pendiente'
+    }));
+  }, [ventas, ventasLimit]);
+  // Función para procesar una devolución
+  const handleProcesarDevolucion = async (devolucionData) => {
+    try {
+      setProcessingDevolucion(true);
+      const token = await getToken();
+
+      console.log('Intentando procesar devolución:', devolucionData); // Debug log
+
+      // Validar datos necesarios
+      if (!devolucionData.ventaId || !devolucionData.items || devolucionData.items.length === 0) {
+        throw new Error('Datos de devolución incompletos');
+      }
+
+      // Procesar cada producto por separado
+      const resultados = [];
+      for (const item of devolucionData.items) {
+        // Validar que el item tenga los datos necesarios
+        if (!item.productoId || !item.cantidadDevuelta || item.cantidadDevuelta <= 0) {
+          console.warn('Item inválido saltado:', item);
+          continue;
+        }
+
+        // Formatear el payload para cada producto
+        const payload = {
+          ventaId: devolucionData.ventaId,
+          productoId: item.productoId,
+          cantidadDevuelta: item.cantidadDevuelta,
+          montoDevolucion: item.montoDevolucion,
+          motivo: item.motivo || 'Sin motivo especificado',
+          fechaDevolucion: new Date()
+        };
+
+        console.log(`Procesando devolución para producto ${item.productoId}:`, payload);
+
+        try {
+          // Hacer la petición al backend para este producto
+          const response = await api.post('/ventas/devoluciones', payload, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          console.log(`Devolución exitosa para producto ${item.productoId}:`, response.data);
+          resultados.push({
+            productoId: item.productoId,
+            success: true,
+            data: response.data
+          });
+
+        } catch (productError) {
+          console.error(`Error al procesar devolución para producto ${item.productoId}:`, productError);
+          resultados.push({
+            productoId: item.productoId,
+            success: false,
+            error: productError.response?.data?.message || productError.message
+          });
+        }
+      }
+
+      // Verificar resultados
+      const exitosos = resultados.filter(r => r.success);
+      const fallidos = resultados.filter(r => !r.success);
+
+      console.log('Resultados del procesamiento:', { exitosos: exitosos.length, fallidos: fallidos.length });
+
+      // Actualizar los datos locales
+      await Promise.all([
+        fetchData(),
+        loadDevoluciones()
+      ]);
+
+      // Mostrar mensaje de resultado
+      if (fallidos.length === 0) {
+        toast.success(`${exitosos.length} devolución(es) procesada(s) exitosamente`);
+      } else if (exitosos.length > 0) {
+        toast.warning(`${exitosos.length} devolución(es) exitosa(s), ${fallidos.length} fallida(s)`);
+      } else {
+        toast.error('No se pudo procesar ninguna devolución');
+        return; // No cerrar el modal si todas fallaron
+      }
+
+      // Cerrar el modal
+      setShowDevolucionModal(false);
+
+    } catch (error) {
+      console.error('Error general al procesar devoluciones:', {
+        mensaje: error.message,        respuesta: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Error al procesar la devolución';
+      toast.error(`Error al procesar devoluciones: ${errorMessage}`);
+    } finally {
+      setProcessingDevolucion(false);
+    }
+  };
+
+  // Función para eliminar una venta
+  const handleEliminarVenta = useCallback(async (ventaId) => {
+    if (!ventaId) {
+      toast.error('ID de venta no válido');
+      return;
+    }
+
+    if (!window.confirm('¿Está seguro que desea eliminar esta venta? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = await getToken();
+      
+      if (!token) {
+        throw new Error('No autorizado - token no válido');
+      }
+
+      console.log('Iniciando eliminación de venta:', ventaId);
+
+      // Eliminar la venta directamente sin obtenerla primero
+      await ventasAPI.eliminarVenta(ventaId, token);
+
+      console.log('Venta eliminada exitosamente');
+
+      // Actualizar el estado local inmediatamente
+      setVentas(prevVentas => prevVentas.filter(v => v._id !== ventaId));
+      
+      // Mostrar mensaje de éxito
+      toast.success('Venta eliminada correctamente y stock actualizado');
+        // Recargar datos para asegurar sincronización
+      await Promise.all([
+        fetchData(),
+        loadDevolucionesSecondary()
+      ]);
+      
+    } catch (error) {
+      console.error('Error detallado al eliminar la venta:', {
+        ventaId,
+        error: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+
+      // Manejar diferentes tipos de errores
+      let errorMessage = 'Error desconocido al eliminar la venta';
+      
+      if (error.response?.status === 404) {
+        errorMessage = 'La venta ya no existe en el sistema';
+        // Actualizar UI quitando la venta del estado local
+        setVentas(prevVentas => prevVentas.filter(v => v._id !== ventaId));
+        toast.info(errorMessage);
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response?.data?.message || 'No se puede eliminar la venta';
+        toast.error(errorMessage);
+      } else if (error.response?.status === 401) {
+        errorMessage = 'No autorizado para realizar esta acción';
+        toast.error(errorMessage);
+      } else {
+        errorMessage = error.response?.data?.message || error.message || 'Error al eliminar la venta';
+        toast.error(errorMessage);
+      }
+        // Recargar datos en caso de error para mantener sincronización
+      try {
+        await fetchData();
+      } catch (reloadError) {
+        console.error('Error al recargar ventas después del error:', reloadError);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [getToken, fetchData, loadDevolucionesSecondary]);
+  // Componente TableRow optimizado con React.memo
+  const TableRow = React.memo(({ venta, onDevolucion, onEliminar, productos, devoluciones }) => {
+    const formatearFecha = useCallback((fecha) => {
+      if (!fecha) return '';
+      try {
+        const fechaObj = new Date(fecha);
+        return fechaObj.toLocaleString('es-PE', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+      } catch (error) {
+        return 'Fecha inválida';
+      }
+    }, []);
+
+    const handleEliminarClick = useCallback((e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (venta && venta._id) {
+        console.log('Iniciando eliminación de venta:', venta._id);
+        onEliminar(venta._id);
+      } else {
+        console.error('Venta inválida:', venta);
+        toast.error('Error: Venta no válida');
+      }
+    }, [venta, onEliminar]);
+
+    const handleDevolucionClick = useCallback((e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onDevolucion(venta);
+    }, [venta, onDevolucion]);    const renderDevoluciones = useMemo(() => {
+      if (!devoluciones || !Array.isArray(devoluciones) || devoluciones.length === 0) {
+        return <span className="text-gray-400 text-sm">Sin devoluciones</span>;
+      }
+
+      const totalDevolucionesAmount = devoluciones.reduce((total, dev) => {
+        return total + (dev.montoDevolucion || 0);
+      }, 0);
+
+      const totalDevolucionesCantidad = devoluciones.reduce((total, dev) => {
+        return total + (dev.cantidadDevuelta || 0);
+      }, 0);
+
+      return (
+        <div className="text-sm">
+          <div className="font-medium text-orange-600">
+            {devoluciones.length} devolución(es)
           </div>
-
-          {/* Indicador de rango seleccionado */}
-          <div className="mt-4 flex items-center gap-3">
-            <div className="hidden lg:block w-px h-8 bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
-            <div className="bg-gradient-to-r from-slate-50 to-gray-50 px-4 py-2 rounded-xl border border-gray-200/50">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full animate-pulse ${
-                  selectedRange === 'day' ? 'bg-blue-400' :
-                  selectedRange === 'week' ? 'bg-green-400' :
-                  selectedRange === 'month' ? 'bg-purple-400' :
-                  selectedRange === 'year' ? 'bg-amber-400' :
-                  'bg-gray-400'
-                }`}></div>
-                <span className="text-sm font-medium text-gray-700">
-                  {selectedRange === 'historical' 
-                    ? 'Todos los registros'
-                    : selectedRange === 'day'
-                    ? 'Hoy'
-                    : selectedRange === 'week'
-                    ? 'Semana actual (Lun - Dom)'
-                    : selectedRange === 'month'
-                    ? `Mes de ${new Date().toLocaleString('es-ES', { month: 'long' })}`
-                    : `Año ${new Date().getFullYear()}`
-                  }
-                </span>
-              </div>
-            </div>
+          <div className="text-xs text-gray-600">
+            {totalDevolucionesCantidad} items
+          </div>
+          <div className="text-xs font-medium text-gray-700">
+            S/ {totalDevolucionesAmount.toFixed(2)}
           </div>
         </div>
+      );
+    }, [devoluciones]);// Calcular monto total real después de devoluciones
+    const calcularMontoReal = useMemo(() => {
+      // Si existe venta.totalOriginal, usarlo como referencia
+      const totalOriginal = venta.totalOriginal !== undefined ? venta.totalOriginal : venta.montoTotal;
+      if (!devoluciones || devoluciones.length === 0) {
+        return totalOriginal || 0;
+      }
+      // Sumar todos los montos de devoluciones para esta venta
+      const totalDevoluciones = devoluciones.reduce((total, dev) => {
+        return total + (dev.montoDevolucion || 0);
+      }, 0);
+      // Si el total original es igual al monto actual, restar devoluciones
+      if (venta.totalOriginal !== undefined) {
+        return totalOriginal - totalDevoluciones;
+      } else {
+        // Si solo tienes montoTotal y ya está actualizado, no restes devoluciones de nuevo
+        return totalOriginal;
+      }
+    }, [venta.montoTotal, venta.totalOriginal, devoluciones]);
 
-          {/* Gráfico de ventas con mensaje cuando no hay datos */}
-          <div className="mb-8">
-            {ventas.length > 0 ? (
-              <SalesOverTimeChart ventas={ventas} devoluciones={devoluciones} selectedRange={selectedRange} />
-            ) : (
-              <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-lg text-gray-500">No hay datos de ventas disponibles</p>
-              </div>
-            )}
-          </div>  
-      
-      <button
-        onClick={toggleFormVisibility}
-        className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 mb-4"
-      >
-        {ventaData.showForm ? 'Cancelar' : 'Agregar Venta'}
-      </button>
+    const renderDetallesProductos = useMemo(() => {
+      if (!venta.detalles || !Array.isArray(venta.detalles)) {
+        return <span className="text-gray-400">Sin detalles</span>;
+      }
 
-        <table className="min-w-full table-auto border-collapse border border-gray-300">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">#</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Colaborador</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Producto</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Cantidad</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Total</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Devoluciones</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto Devuelto</th>
-
-        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Fecha de Venta</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ventas.length ? (
-              ventas.slice(0, ventasLimit).map((venta, index) => {
-
-                const rowNumber = index + 1;
-
-                // Obtener devoluciones para esta venta
-                const devolucionesVenta = devoluciones.filter(d => d.ventaId._id === venta._id);
-                const cantidadTotalDevuelta = devolucionesVenta.reduce((acc, dev) => acc + (parseInt(dev.cantidadDevuelta) || 0), 0);
-                const montoTotalDevuelto = devolucionesVenta.reduce((acc, dev) => acc + (parseFloat(dev.montoDevolucion) || 0), 0);
-                const tieneDevolucion = devolucionesVenta.length > 0;
-
-                return (
-                  <tr key={venta._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{rowNumber}</td>
-                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{venta.colaboradorId?.nombre || 'N/A'}</td>
-                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{venta.productoId?.nombre || 'N/A'}</td>
-                    <td className="px-4 py-2 text-sm text-gray-600 border-b">{venta.cantidad}</td>
-                    <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {venta.montoTotal.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-sm text-gray-600 border-b">
-                      {cantidadTotalDevuelta > 0 ? cantidadTotalDevuelta : '0'}
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {montoTotalDevuelto.toFixed(2)}</td>
-
-        <td className="px-4 py-2 text-sm text-gray-600 border-b">
-          {formatearFechaHora(venta.fechadeVenta)}
-        </td>
-
-        <td className="px-4 py-2 text-sm text-gray-600 border-b flex space-x-2">
-          {venta.cantidad - cantidadTotalDevuelta > 0 && (
-            <>
-              <button
-                onClick={() => abrirModalDevolucion(venta)}
-                className="text-blue-500 hover:text-blue-700"
-              >
-                Devolver
-              </button>
-              {!tieneDevolucion && (
-                <button
-                  onClick={() => handleDeleteVenta(venta._id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  Eliminar
-                </button>
-              )}
-            </>
-          )}
-        </td>
-                  </tr>
-                );
+      return (
+        <div className="space-y-1">
+          {venta.detalles.map((detalle, index) => {
+            // Calcular cantidad devuelta para este producto específico
+            const cantidadDevueltaProducto = devoluciones
+              .filter(dev => {
+                const devProductoId = dev.productoId?._id || dev.productoId;
+                const detalleProductoId = detalle.productoId?._id || detalle.productoId;
+                return devProductoId === detalleProductoId;
               })
-            ) : (
-              <tr>
-                <td colSpan="9" className="px-4 py-2 text-center text-gray-600">
-                  No hay ventas registradas.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              .reduce((total, dev) => total + (dev.cantidadDevuelta || 0), 0);
 
-          {/* Botón Ver más: fuera de la tabla y solo si hay más ventas que mostrar */}
-          {ventasLimit < ventas.length && (
-            <div className="flex justify-center mt-4">
-              <button
-                onClick={() => setVentasLimit(ventasLimit + 20)} // Aumenta 20 ventas al mostrar
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Ver más
-              </button>
+            // Cantidad real = cantidad original - cantidad devuelta
+            const cantidadReal = detalle.cantidad - cantidadDevueltaProducto;
+            const nombreProducto = detalle.nombre || detalle.productoId?.nombre || 'Producto';            return (
+              <div key={detalle._id || index} className="text-sm">
+                {cantidadDevueltaProducto > 0 ? (
+                  // Mostrar cantidad con devoluciones (más compacto)
+                  <div>
+                    <div className="font-medium text-green-700">
+                      {cantidadReal}x {nombreProducto}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      <span className="line-through">Orig: {detalle.cantidad}</span>
+                      <span className="text-red-600 ml-1">Dev: {cantidadDevueltaProducto}</span>
+                    </div>
+                  </div>
+                ) : (
+                  // Mostrar cantidad normal sin devoluciones
+                  <div>
+                    <span>{detalle.cantidad}x {nombreProducto}</span>
+                    {detalle.precioUnitario && (
+                      <span className="text-gray-600 ml-1 text-xs">(S/ {detalle.precioUnitario.toFixed(2)})</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }, [venta.detalles, devoluciones]);    return (
+      <tr className="hover:bg-gray-50 border-b">
+        <td className="px-4 py-2 text-sm">{formatearFecha(venta.fechaVenta || venta.fechadeVenta)}</td>
+        <td className="px-4 py-2 text-sm">{venta.colaboradorId?.nombre || 'N/A'}</td>
+        <td className="px-4 py-2">{renderDetallesProductos}</td>
+        <td className="px-4 py-2 font-semibold text-sm">
+          {devoluciones && devoluciones.length > 0 ? (
+            <div>
+              <div className="text-green-700">S/ {calcularMontoReal.toFixed(2)}</div>
+              {venta.totalOriginal !== undefined && (
+                <div className="text-xs text-gray-400 line-through">
+                  S/ {venta.totalOriginal.toFixed(2)}
+                </div>
+              )}
+              {venta.totalOriginal === undefined && devoluciones.length > 0 && (
+                <div className="text-xs text-gray-400 line-through">
+                  S/ {(venta.montoTotal + devoluciones.reduce((total, dev) => total + (dev.montoDevolucion || 0), 0)).toFixed(2)}
+                </div>
+              )}
             </div>
+          ) : (
+            <span>S/ {(venta.montoTotal || 0).toFixed(2)}</span>
           )}
+        </td>
+        <td className="px-4 py-2">
+          <span className={`px-2 py-1 text-xs rounded-full ${
+            venta.estadoPago === 'Pagado' 
+              ? 'bg-green-100 text-green-800' 
+              : venta.estadoPago === 'Parcial'
+              ? 'bg-yellow-100 text-yellow-800'
+              : 'bg-red-100 text-red-800'
+          }`}>
+            {venta.estadoPago || 'Pendiente'}
+          </span>
+        </td>
+        <td className="px-4 py-2">{renderDevoluciones}</td>
+        <td className="px-4 py-2">
+          <div className="flex space-x-2">
+            <button
+              onClick={handleDevolucionClick}
+              className="text-blue-500 hover:text-blue-700 text-sm px-2 py-1"
+            >
+              Devolver
+            </button>
+            <button
+              onClick={handleEliminarClick}
+              className="text-red-500 hover:text-red-700 text-sm px-2 py-1"
+            >
+              Eliminar
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  });
 
+  // Renderizado de la tabla
+  const renderTablaVentas = useCallback(() => {
+    if (loading) {
+      return (
+        <div className="w-full text-center py-4">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+          </div>
+        </div>
+      );
+    }
 
-      {/* Historial de Devoluciones */}
-      <div className="mt-8">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Historial de Devoluciones</h3>
+    if (error) {
+      return (
+        <div className="text-center py-4 text-red-600">
+          <p>{error}</p>
+          <button 
+            onClick={() => {
+              setError(null);
+              fetchData();
+            }}
+            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Reintentar
+          </button>
+        </div>
+      );
+    }
+
+    if (!ventas || ventas.length === 0) {
+      return (
+        <div className="text-center py-4 text-gray-600">
+          <p>No hay datos de ventas para mostrar en el período seleccionado</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto">
         <table className="min-w-full table-auto border-collapse border border-gray-300">
           <thead className="bg-gray-100">
             <tr>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Colaborador</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Fecha</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Producto</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Cantidad</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Monto</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Motivo</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b">Acciones</th>
+              <th className="px-4 py-2 text-left">Fecha</th>
+              <th className="px-4 py-2 text-left">Colaborador</th>
+              <th className="px-4 py-2 text-left">Productos</th>
+              <th className="px-4 py-2 text-left">Total</th>
+              <th className="px-4 py-2 text-left">Estado</th>
+              <th className="px-4 py-2 text-left">Devoluciones</th>
+              <th className="px-4 py-2 text-left">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {devoluciones.length ? (
-              devoluciones.slice(0, devolucionesLimit).map((devolucion) => (
-                <tr key={devolucion._id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">
-                    {devolucion.ventaId?.colaboradorId?.nombre || 'N/A'}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">
-  {formatearFechaHora(devolucion.fechaDevolucion)}
-</td>
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">
-                    {devolucion.productoId?.nombre || 'N/A'}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">{devolucion.cantidadDevuelta}</td>
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">S/ {devolucion.montoDevolucion?.toFixed(2)}</td>
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">{devolucion.motivo}</td>
-                  <td className="px-4 py-2 text-sm text-gray-600 border-b">
-                    <button
-                      onClick={() => handleEliminarDevolucion(devolucion._id)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="7" className="px-4 py-2 text-center text-gray-600">
-                  No hay devoluciones registradas
-                </td>
-              </tr>
-            )}
+            {ventasSeguras.map((venta) => (
+              <TableRow
+                key={venta._id}
+                venta={venta}
+                onDevolucion={abrirModalDevolucion}
+                onEliminar={handleEliminarVenta}
+                productos={productos}
+                devoluciones={getDevolucionesPorVenta(venta)}
+              />
+            ))}
           </tbody>
         </table>
+      </div>
+    );
+  }, [loading, error, ventas, ventasSeguras, productos, handleEliminarVenta, abrirModalDevolucion, getDevolucionesPorVenta, fetchData]);
 
-        {/* Botón Ver más Devoluciones */}
-        {devolucionesLimit < devoluciones.length && (
+  // En el return principal del componente, reemplazar la sección de la tabla por:
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <ToastContainer />
+      {/* Encabezado y botones */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Gestión de Ventas</h1>
+      
+      </div>
+
+      {/* Panel de Gráficos */}
+      <div className="mb-8 relative overflow-hidden bg-white rounded-lg shadow">
+        <div className="p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Análisis de Ventas</h2>
+            <select
+              value={selectedRange}
+              onChange={(e) => setSelectedRange(e.target.value)}
+              className="mt-1 block w-48 pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
+            >
+              <option value="day">Hoy</option>
+              <option value="week">Esta Semana</option>
+              <option value="month">Este Mes</option>
+              <option value="year">Este Año</option>
+              <option value="historical">Histórico</option>
+            </select>
+          </div>
+          {salesChartComponent}
+        </div>
+      </div>
+  <button
+          onClick={handleOpenModal}
+          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+        >
+          Nueva Venta
+        </button>
+      {/* Tabla de Ventas */}
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Lista de Ventas</h3>
+        {renderTablaVentas()}
+        
+        {!loading && ventas.length > ventasLimit && (
           <div className="flex justify-center mt-4">
             <button
-              onClick={() => setDevolucionesLimit(devolucionesLimit + 20)} // Incrementa 10 devoluciones cada vez
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              onClick={handleLoadMoreVentas}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
             >
-              Ver más
+              Cargar más ventas
             </button>
           </div>
         )}
       </div>
-        
 
-        
-      {/* Formulario Modal para Agregar o Editar Venta */}
-      {ventaData.showForm && (
-        <div className="modal-overlay fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-          <div className="modal-content bg-white rounded-lg shadow-lg w-96 p-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">{ventaData.editing ? 'Editar Venta' : 'Agregar Venta'}</h3>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Venta</label>
-              <input
-                type="datetime-local"
-                value={ventaData.fechadeVenta}
-                onChange={(e) => setVentaData({ ...ventaData, fechadeVenta: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-            </div>
-            {/* Colaborador Select */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Colaborador</label>
-              <select
-                value={ventaData.colaboradorId}
-                onChange={(e) => setVentaData({ ...ventaData, colaboradorId: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
-                <option value="">Selecciona un Colaborador</option>
-                {colaboradores && colaboradores.length > 0 ? (
-                  colaboradores.map((colaborador) => (
-                    <option key={colaborador._id} value={colaborador._id}>
-                      {colaborador.nombre}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>No hay colaboradores disponibles</option>
-                )}
-              </select>
-              {colaboradores.length === 0 && (
-                <p className="text-red-500 text-xs mt-1">
-                  No se encontraron colaboradores. Verifica la conexión con el servidor.
-                </p>
-              )}
-            </div>
+      {/* Modal de Venta */}
+      <VentaModal
+        isVisible={isModalVisible}
+        onClose={handleCloseModal}
+        onSave={handleSaveVenta}
+        colaboradores={colaboradores}
+        productos={productos}
+        isSaving={isSaving}
+      />      {/* Modal de Devolución */}
+      <DevolucionModal
+        isVisible={showDevolucionModal}
+        onClose={() => {
+          setShowDevolucionModal(false);
+          setVentaSeleccionada(null);
+        }}
+        venta={ventaSeleccionada}
+        onProcesarDevolucion={handleProcesarDevolucion}
+        isProcesando={processingDevolucion}
+      />
 
-{/* Producto Select */}
-<div className="mb-4">
-  <label className="block text-sm font-medium text-gray-700 mb-1">Producto</label>
-  <ProductoSearchSelect
-    productos={productos}
-    selectedProductoId={ventaData.productoId}
-    onProductoChange={handleProductoChange}
-    placeholder="Buscar producto por nombre..."
-  />
-</div>
-
-            {/* Cantidad Input */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
-              <input
-                type="number"
-                value={ventaData.cantidad}
-                onChange={handleCantidadChange}
-                min="1"
-                max={cantidadDisponible}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-              {cantidadDisponible > 0 && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Disponible: {cantidadDisponible} unidades
-                </p>
-              )}
-            </div>
-
-            {/* Monto Total (Read Only) */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Monto Total</label>
-              <input
-                type="number"
-                value={ventaData.montoTotal}
-                readOnly
-                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
-              />
-            </div>
-
-
-
-            {/* Cantidad Pagada (solo para pagos parciales) */}
-            {ventaData.estadoPago === 'Parcial' && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad Pagada</label>
-                <input
-                  type="number"
-                  value={ventaData.cantidadPagada || ''}
-                  onChange={(e) => setVentaData({ ...ventaData, cantidadPagada: parseFloat(e.target.value) || 0 })}
-                  min="0.01"
-                  max={ventaData.montoTotal - 0.01}
-                  step="0.01"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-              </div>
-            )}
-
-            {/* Botones de acción */}
-<div className="modal-buttons flex justify-end space-x-2 mt-6">
-  <button
-    onClick={handleAddOrEditVenta}
-    className={`px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 
-      ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-    disabled={!ventaData.colaboradorId || !ventaData.productoId || 
-      ventaData.cantidad <= 0 || isSaving}
-  >
-    {isSaving ? 'Guardando...' : 'Agregar'}
-  </button>
-  
-  <button
-    onClick={toggleFormVisibility}
-    className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-  >
-    Cancelar
-  </button>
-</div>
-
-
-        </div>
-      </div>
-    )}
-    
-
-      
-    {/* Modal de Devolución */}
-    {isModalVisible && selectedProducto && (
-      <div className="fixed inset-0 flex items-center justify-center z-50">
-        <div className="modal-overlay absolute inset-0 bg-black opacity-50"></div>
-        <div className="modal-content bg-white p-6 rounded-lg shadow-xl z-50 w-96">
-          <h3 className="text-xl font-semibold mb-4">Registrar Devolución</h3>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Producto: {selectedProducto.productoId?.nombre || selectedProducto.nombre}
-            </label>
-          </div>
-
-
-
-      {/* Nuevo campo de fecha */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Fecha de devolución:
-        </label>
-        <input
-          type="datetime-local"
-          value={fechaDevolucion}
-          onChange={(e) => setFechaDevolucion(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        />
-      </div>
-
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Cantidad a devolver:
-            </label>
-            <input
-              type="number"
-              value={cantidadDevuelta}
-              onChange={(e) => setCantidadDevuelta(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              min="1"
-              max={selectedProducto.cantidad}
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Motivo:
-            </label>
-            <textarea
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              rows="3"
-            />
-          </div>
-
-          <div className="flex justify-end space-x-2">
-            <button
-              onClick={() => setIsModalVisible(false)}
-              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-            >
-              Cancelar
-            </button>
-        <button
-          onClick={handleRegistrarDevolucion}
-          className={`px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600
-            ${isSubmittingDevolucion ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={isSubmittingDevolucion || !cantidadDevuelta || !motivo}
-        >
-          {isSubmittingDevolucion ? 'Registrando...' : 'Registrar'}
-        </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Tabla de Devoluciones */}
+      <DevolucionesList
+        devoluciones={devoluciones}
+      />
     </div>
   );
 }

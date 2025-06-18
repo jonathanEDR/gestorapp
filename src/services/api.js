@@ -29,17 +29,6 @@ export const createProducto = async (producto) => {
   }
 };
 
-// Obtener todas las ventas
-export const getVentas = async () => {
-  try {
-    const response = await api.get('/ventas');  // Usando la instancia api
-    return response.data;
-  } catch (error) {
-    console.error('Error al obtener ventas:', error);
-    throw error;
-  }
-};
-
 // Crear una nueva venta
 export const createVenta = async (venta) => {
   try {
@@ -60,6 +49,69 @@ export const createVenta = async (venta) => {
   } catch (error) {
     console.error('Error al agregar venta:', error.message);
     throw new Error(`Error al crear la venta: ${error.message}`);
+  }
+};
+
+// Funciones para manejo de ventas
+export const ventasAPI = {
+  obtenerVenta: async (id, token) => {
+    try {
+      const response = await api.get(`/ventas/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener venta:', error);
+      throw error;
+    }
+  },
+  eliminarVenta: async (id, token) => {
+    try {
+      const response = await api.delete(`/ventas/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error al eliminar venta:', error);
+      throw error;
+    }
+  },
+
+  actualizarStockProducto: async (productoId, cantidad, token) => {
+    try {
+      const response = await api.put(`/productos/${productoId}`, 
+        { incrementoStock: cantidad },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error al actualizar stock:', error);
+      throw error;
+    }
+  },
+
+  obtenerTodasLasVentas: async (token) => {
+    try {
+      const response = await api.get('/ventas', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener ventas:', error);
+      throw error;
+    }
   }
 };
 

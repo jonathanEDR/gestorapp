@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
-import api, { getGestionPersonal } from '../services/api'; // Ajusta la ruta si es necesario
-import SalesByCollaboratorChart from './graphics/SalesByCollaboratorChart'; // Asegúrate de importar el componente
+import api from '../services/api'; // Quitada la importación no usada
+import SalesByCollaboratorChart from './graphics/SalesByCollaboratorChart';
 import CollectionsByCollaboratorChart from './graphics/CollectionsByCollaboratorChart'; 
 import ProductSalesAnalysisChart from './graphics/ProductSalesAnalysisChart';
 import GestionPersonalDepartamentoChart from './graphics/GestionPersonalDepartamentoChart';
@@ -27,50 +27,88 @@ const [registros, setRegistros] = useState([]);
 
   const [selectedRange, setSelectedRange] = useState('month'); // Estado para gestionar el rango de tiempo seleccionado
 const [registrosGestion, setRegistrosGestion] = useState([]);
-const [filtroFecha, setFiltroFecha] = useState('historico');
+
 
   // Función para obtener ventas
-const fetchVentas = useCallback(async () => {
-  try {
-    const token = await getToken();
-    const response = await api.get('/ventas', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  const fetchVentas = useCallback(async () => {
+    try {
+      const token = await getToken();
+      if (!token) {
+        setError('No estás autorizado');
+        return;
+      }
 
-    console.log(response.data); // Ver los datos que recibimos de la API
+      const response = await api.get('/ventas', {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { limit: 1000 } // Solicitar muchos registros o todos
+      });
 
-    // Acceder a la propiedad 'ventas' y verificar que es un arreglo
-    if (Array.isArray(response.data.ventas)) {
-      setVentas(response.data.ventas); // Guardar solo los datos de ventas en el estado
-    } else {
-      console.error('Los datos de ventas no son un arreglo');
-      setVentas([]); // Asignar un arreglo vacío en caso de que no sea un arreglo
+      console.log('Respuesta completa de ventas:', response.data);
+
+      // Manejar diferentes estructuras de respuesta
+      let ventasArray = [];
+      if (Array.isArray(response.data)) {
+        ventasArray = response.data;
+      } else if (response.data && Array.isArray(response.data.ventas)) {
+        ventasArray = response.data.ventas;
+      } else if (response.data && Array.isArray(response.data.data)) {
+        ventasArray = response.data.data;
+      } else {
+        console.error('Formato de respuesta inesperado para ventas:', response.data);
+        setVentas([]);
+        return;
+      }
+
+      // Validar y normalizar fechas
+      const ventasValidadas = ventasArray.map(venta => {
+        const fechaVenta = new Date(venta.fechaVenta);
+        if (isNaN(fechaVenta.getTime())) {
+          return { ...venta, fechaVenta: new Date().toISOString() };
+        }
+        return venta;
+      });
+
+      setVentas(ventasValidadas);
+    } catch (error) {
+      console.error('Error al obtener ventas:', error);
+      setError('Error al cargar ventas');
+      setVentas([]);
     }
-  } catch (error) {
-    console.error('Error al obtener ventas:', error);
-    setVentas([]); // Asignar un arreglo vacío en caso de error
-  }
-}, [getToken]);
+  }, [getToken]);
 
 
-// Añadir después de fetchVentas
+// Función para obtener cobros
 const fetchCobros = useCallback(async () => {
   try {
     const token = await getToken();
+    if (!token) {
+      setError('No estás autorizado');
+      return;
+    }
+
     const response = await api.get('/cobros', {
       headers: { Authorization: `Bearer ${token}` },
+      params: { limit: 1000 } // Solicitar muchos registros o todos
     });
 
     console.log('Cobros recibidos:', response.data); // Para debugging
 
-    if (Array.isArray(response.data.cobros)) {
-      setCobros(response.data.cobros);
+    // Manejar diferentes estructuras de respuesta
+    let cobrosArray = [];
+    if (Array.isArray(response.data)) {
+      cobrosArray = response.data;
+    } else if (response.data && Array.isArray(response.data.cobros)) {
+      cobrosArray = response.data.cobros;
     } else {
-      console.error('Los datos de cobros no son un arreglo');
+      console.error('Formato de respuesta inesperado para cobros:', response.data);
       setCobros([]);
+      return;
     }
+
+    setCobros(cobrosArray);
   } catch (error) {
     console.error('Error al obtener cobros:', error);
+    setError('Error al cargar cobros');
     setCobros([]);
   }
 }, [getToken]);
@@ -136,160 +174,120 @@ const goToPreviousPageProductos = () => {
 const productosPaginados = getPaginatedData(productos, currentPageProductos, itemsPerPageProductos);
 const totalPagesProductos = Math.ceil(productos.length / itemsPerPageProductos);
 
+  // Función para obtener productos
+  const fetchProductos = useCallback(async () => {
+    try {
+      const token = await getToken();
+      if (!token) {
+        setError('No estás autorizado');
+        return;
+      }
+  
+      // Solicitar todos los productos
+      const response = await api.get('/productos', {
+        headers: { 'Authorization': `Bearer ${token}` },
+        params: { limit: 1000 } // Solicitar muchos registros o todos
+      });
+  
+      // Verificar la estructura de la respuesta
+      let productosArray = [];
+      if (response.data && Array.isArray(response.data)) {
+        productosArray = response.data;
+      } else if (response.data && Array.isArray(response.data.productos)) {
+        productosArray = response.data.productos;
+      } else {
+        console.error('Formato de respuesta inesperado para productos:', response.data);
+      }
+      
+      setProductos(productosArray);
+    } catch (error) {
+      console.error('Error al obtener productos:', error);
+      setError('Error al cargar productos');
+    }
+  }, [getToken]);
 
-  // Cargar los datos de las ventas
+  // Función para calcular totales de ventas por colaborador
+  const calcularTotalesPorColaborador = useCallback((ventasArray) => {
+    const totales = ventasArray.reduce((acc, venta) => {
+      const colaboradorId = venta.colaboradorId?._id;
+      if (colaboradorId) {
+        acc[colaboradorId] = (acc[colaboradorId] || 0) + Math.floor(venta.montoTotal);
+      }
+      return acc;
+    }, {});
+
+    setTotalVentasPorColaborador(totales);
+  }, []);
+
+  // Función para consolidar pagos por colaborador
+  const consolidarPagosPorColaborador = useCallback((cobrosArray) => {
+    const pagosTotales = cobrosArray.reduce((acc, cobro) => {
+      const colaboradorId = cobro.colaboradorId?._id;
+      if (colaboradorId) {
+        if (!acc[colaboradorId]) {
+          acc[colaboradorId] = {
+            nombre: cobro.colaboradorId.nombre,
+            montoPagado: 0,
+            ultimaFecha: cobro.fechaPago
+          };
+        }
+        acc[colaboradorId].montoPagado += cobro.montoPagado;
+        // Mantener la fecha más reciente de pago
+        if (new Date(cobro.fechaPago) > new Date(acc[colaboradorId].ultimaFecha)) {
+          acc[colaboradorId].ultimaFecha = cobro.fechaPago;
+        }
+      }
+      return acc;
+    }, {});
+
+    setPagosPorColaborador(pagosTotales);
+
+    // Inicializar la paginación para los pagos de cada colaborador
+    const paginacionInicial = {};
+    Object.keys(pagosTotales).forEach(colaboradorId => {
+      paginacionInicial[colaboradorId] = {
+        currentPage: 1,
+        itemsPerPage: 10
+      };
+    });
+    setPagosPaginacion(paginacionInicial);
+  }, []);
+
+  // Cargar todos los datos
   useEffect(() => {
-    const fetchVentas = async () => {
+    const loadAllData = async () => {
+      setIsLoading(true);
       try {
-        const token = await getToken();
-        if (!token) {
-          setError('No estás autorizado');
-          setIsLoading(false);
-          return;
-        }
-
-        const response = await api.get('/ventas', {
-          headers: { 'Authorization': `Bearer ${token}` },
-          params: { limit: 1000 } // Solicitar muchos registros o todos (depende de la API)
-        });
-
-        let ventasArray = [];
-        if (response.data && Array.isArray(response.data)) {
-          ventasArray = response.data;
-        } else if (response.data && Array.isArray(response.data.ventas)) {
-          ventasArray = response.data.ventas;
-        } else {
-          setError('Formato de respuesta inesperado');
-          setIsLoading(false);
-          return;
-        }
-
-        ventasArray = ventasArray.map(venta => {
-          const fechaVenta = new Date(venta.fechaVenta);
-          if (isNaN(fechaVenta.getTime())) {
-            return { ...venta, fechaVenta: new Date().toISOString() };
-          }
-          return venta;
-        });
-
-        setVentas(ventasArray);
-
-        // Calcular el total de ventas por colaborador
-        const totales = ventasArray.reduce((acc, venta) => {
-          const colaboradorId = venta.colaboradorId?._id;
-          if (colaboradorId) {
-            acc[colaboradorId] = (acc[colaboradorId] || 0) + Math.floor(venta.montoTotal);
-          }
-          return acc;
-        }, {});
-
-        setTotalVentasPorColaborador(totales);
+        await Promise.all([
+          fetchVentas(),
+          fetchProductos(),
+          fetchCobros(),
+          fetchGestionData()
+        ]);
       } catch (error) {
-        console.error('Error al obtener ventas:', error);
-        setError('Error al cargar ventas');
+        console.error('Error al cargar datos:', error);
+        setError('Error al cargar datos');
       } finally {
         setIsLoading(false);
       }
     };
 
-    const fetchProductos = async () => {
-      try {
-        const token = await getToken();
-        if (!token) {
-          setError('No estás autorizado');
-          return;
-        }
-    
-        // Solicitar todos los productos
-        const response = await api.get('/productos', {
-          headers: { 'Authorization': `Bearer ${token}` },
-          params: { limit: 1000 } // Solicitar muchos registros o todos
-        });
-    
-        // Verificar la estructura de la respuesta
-        let productosArray = [];
-        if (response.data && Array.isArray(response.data)) {
-          productosArray = response.data;
-        } else if (response.data && Array.isArray(response.data.productos)) {
-          productosArray = response.data.productos;
-        } else {
-          console.error('Formato de respuesta inesperado para productos:', response.data);
-        }
-        
-        setProductos(productosArray);
-      } catch (error) {
-        console.error('Error al obtener productos:', error);
-        setError('Error al cargar productos');
-      }
-    };
+    loadAllData();
+  }, [fetchVentas, fetchProductos, fetchCobros, fetchGestionData]);
 
-        const fetchCobros = async () => {
-      try {
-        const token = await getToken();
-        if (!token) {
-          setError('No estás autorizado');
-          return;
-        }
+  // Calcular totales cuando cambien las ventas
+  useEffect(() => {
+    if (ventas.length > 0) {
+      calcularTotalesPorColaborador(ventas);
+    }
+  }, [ventas, calcularTotalesPorColaborador]);
 
-        // Solicitar todos los cobros
-        const response = await api.get('/cobros', {
-          headers: { 'Authorization': `Bearer ${token}` },
-          params: { limit: 1000 } // Solicitar muchos registros o todos
-        });
-
-        // Verificar la estructura de la respuesta
-        let cobrosArray = [];
-        if (response.data && Array.isArray(response.data)) {
-          cobrosArray = response.data;
-        } else if (response.data && Array.isArray(response.data.cobros)) {
-          cobrosArray = response.data.cobros;
-        } else {
-          console.error('Formato de respuesta inesperado para cobros:', response.data);
-        }
-        
-        setCobros(cobrosArray);
-
-        // Consolidar pagos por colaborador
-        const pagosTotales = cobrosArray.reduce((acc, cobro) => {
-          const colaboradorId = cobro.colaboradorId?._id;
-          if (colaboradorId) {
-            if (!acc[colaboradorId]) {
-              acc[colaboradorId] = {
-                nombre: cobro.colaboradorId.nombre,
-                montoPagado: 0,
-                ultimaFecha: cobro.fechaPago
-              };
-            }
-            acc[colaboradorId].montoPagado += cobro.montoPagado;
-            // Mantener la fecha más reciente de pago
-            if (new Date(cobro.fechaPago) > new Date(acc[colaboradorId].ultimaFecha)) {
-              acc[colaboradorId].ultimaFecha = cobro.fechaPago;
-            }
-          }
-          return acc;
-        }, {});
-
-        setPagosPorColaborador(pagosTotales);
-
-        // Inicializar la paginación para los pagos de cada colaborador
-        const paginacionInicial = {};
-        Object.keys(pagosTotales).forEach(colaboradorId => {
-          paginacionInicial[colaboradorId] = {
-            currentPage: 1,
-            itemsPerPage: 10
-          };
-        });
-        setPagosPaginacion(paginacionInicial);
-      } catch (error) {
-        console.error('Error al obtener cobros:', error);
-        setError('Error al cargar cobros');
-      }
-    };
-
-    fetchVentas();
-    fetchProductos();
-    fetchCobros();
-  }, [getToken]);
+  // Consolidar pagos cuando cambien los cobros
+  useEffect(() => {
+    if (cobros.length > 0) {
+      consolidarPagosPorColaborador(cobros);
+    }
+  }, [cobros, consolidarPagosPorColaborador]);
 
 
   // Función para obtener los pagos paginados de un colaborador

@@ -24,6 +24,13 @@ ChartJS.register(
 
 const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
 
+  // Debug: verificar qué se está recibiendo
+  console.log('🔍 DEBUG: Props recibidas en SalesOverTimeChart:', {
+    ventasCount: ventas?.length || 0,
+    devolucionesCount: devoluciones?.length || 0,
+    selectedRange
+  });
+
   const parseDate = (fecha) => {
     let fechaValida;
 
@@ -46,14 +53,12 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
 
   // Filtrar las ventas según el rango seleccionado
   const filteredData = useMemo(() => {
-    if (!ventas || ventas.length === 0) return [];
-
-    const ventasConFechasValidas = ventas.map(venta => {
-      let fechaValida = parseDate(venta.fechadeVenta);
+    if (!ventas || ventas.length === 0) return [];    const ventasConFechasValidas = ventas.map(venta => {
+      let fechaValida = parseDate(venta.fechaVenta || venta.fechadeVenta); // Manejar ambos nombres
       return {
         ...venta,
         fechaVenta: fechaValida,
-        fechaOriginal: venta.fechadeVenta
+        fechaOriginal: venta.fechaVenta || venta.fechadeVenta
       };
     });
 
@@ -119,6 +124,76 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
 
     return resultado;
   }, [ventas, selectedRange]);
+
+  // Filtrar devoluciones por separado con el mismo rango
+  const filteredDevoluciones = useMemo(() => {
+    if (!devoluciones || !Array.isArray(devoluciones)) {
+      console.log('🔍 DEBUG: No hay devoluciones para filtrar');
+      return [];
+    }
+
+    console.log('🔍 DEBUG: Filtrando devoluciones para rango:', selectedRange);
+    console.log('🔍 DEBUG: Devoluciones totales:', devoluciones.length);
+
+    const now = new Date();
+
+    switch (selectedRange) {
+      case 'day': {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        return devoluciones.filter(dev => {
+          if (!dev.fechaDevolucion) return false;
+          const devDate = parseDate(dev.fechaDevolucion);
+          return devDate >= today && devDate < tomorrow;
+        });
+      }
+      case 'week': {
+        const currentDate = new Date(now);
+        const currentDay = currentDate.getDay() || 7;
+        const diff = currentDay - 1;
+        
+        const startOfWeek = new Date(currentDate);
+        startOfWeek.setDate(currentDate.getDate() - diff);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 7);
+        endOfWeek.setHours(0, 0, 0, 0);
+
+        return devoluciones.filter(dev => {
+          if (!dev.fechaDevolucion) return false;
+          const devDate = parseDate(dev.fechaDevolucion);
+          return devDate >= startOfWeek && devDate < endOfWeek;
+        });
+      }
+      case 'month': {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        endOfMonth.setHours(23, 59, 59, 999);
+
+        return devoluciones.filter(dev => {
+          if (!dev.fechaDevolucion) return false;
+          const devDate = parseDate(dev.fechaDevolucion);
+          return devDate >= startOfMonth && devDate <= endOfMonth;
+        });
+      }
+      case 'year': {
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const endOfYear = new Date(now.getFullYear() + 1, 0, 1);
+        return devoluciones.filter(dev => {
+          if (!dev.fechaDevolucion) return false;
+          const devDate = parseDate(dev.fechaDevolucion);
+          return devDate >= startOfYear && devDate < endOfYear;
+        });
+      }
+      case 'historical':
+      default:
+        return devoluciones;
+    }
+  }, [devoluciones, selectedRange]);
 
   // Función para formatear etiquetas en el eje X
   const formatDate = (date, range) => {
@@ -272,22 +347,44 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
       if (key in groupedSales) {
         groupedSales[key] += montoTotal;
       }
-    });
+    });    // Agrupar devoluciones si existen
+    if (filteredDevoluciones && Array.isArray(filteredDevoluciones)) {
+      console.log('🔍 DEBUG: Devoluciones filtradas recibidas en gráfico:', filteredDevoluciones); // Debug log      
+      filteredDevoluciones.forEach((devolucion) => {
+        if (devolucion && devolucion.fechaDevolucion && devolucion.montoDevolucion) {
+          const montoDevolucion = parseFloat(devolucion.montoDevolucion) || 0;
+          const date = parseDate(devolucion.fechaDevolucion);
+          const key = getGroupingFormat(date, selectedRange);
 
-    // Agrupar devoluciones
-    devoluciones.forEach((devolucion) => {
-      const montoDevolucion = parseFloat(devolucion.montoDevolucion) || 0;
-      const date = new Date(devolucion.fechaDevolucion);
-      const key = getGroupingFormat(date, selectedRange);
+          console.log('🔍 DEBUG: Procesando devolución:', {
+            fecha: devolucion.fechaDevolucion,
+            fechaParsed: date,
+            monto: montoDevolucion,
+            key: key,
+            existeKey: key in groupedDevoluciones
+          }); // Debug log
 
-      if (key in groupedDevoluciones) {
-        groupedDevoluciones[key] += montoDevolucion;
-      }
-    });
-
-    // Calcular ventas netas
+          if (key in groupedDevoluciones) {
+            groupedDevoluciones[key] += montoDevolucion;
+            console.log('🔍 DEBUG: Devolución agregada, nuevo total para', key, ':', groupedDevoluciones[key]); // Debug log
+          }
+        } else {
+          console.log('🔍 DEBUG: Devolución inválida:', devolucion); // Debug log
+        }
+      });
+    } else {
+      console.log('🔍 DEBUG: No hay devoluciones o no es un array:', devoluciones); // Debug log
+    }    // Calcular ventas netas
     timeIntervals.forEach(interval => {
       groupedVentasNetas[interval.key] = groupedSales[interval.key] - groupedDevoluciones[interval.key];
+    });
+
+    // Debug final de datos
+    console.log('🔍 DEBUG: Datos finales del gráfico:', {
+      labels: timeIntervals.map(interval => interval.label),
+      ventas: timeIntervals.map(interval => groupedSales[interval.key]),
+      devoluciones: timeIntervals.map(interval => groupedDevoluciones[interval.key]),
+      ventasNetas: timeIntervals.map(interval => groupedVentasNetas[interval.key])
     });
 
     return {
@@ -296,7 +393,7 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
       devolucionesValues: timeIntervals.map(interval => groupedDevoluciones[interval.key]),
       ventasNetasValues: timeIntervals.map(interval => groupedVentasNetas[interval.key])
     };
-  }, [filteredData, devoluciones, selectedRange, ]);
+  }, [filteredData, filteredDevoluciones, selectedRange]);
 
   
   // Datos del gráfico
