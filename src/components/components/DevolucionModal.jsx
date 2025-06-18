@@ -18,44 +18,50 @@ const DevolucionModal = ({ isVisible, onClose, venta, onProcesarDevolucion, isPr
       setFechaDevolucion(getFechaActualLocal()); // Resetear fecha también
     }
   }, [isVisible]);
-
   // Memoizar productos disponibles para devolución
   const availableProducts = useMemo(() => {
     if (!venta?.detalles) return [];
     
     return venta.detalles.filter(detalle => {
-      // Calcular cantidad disponible para devolución
-      const devoluciones = venta.devoluciones || [];
-      const cantidadDevuelta = devoluciones
-        .filter(dev => dev.productoId === detalle.productoId)
-        .reduce((sum, dev) => sum + dev.cantidadDevuelta, 0);
+      // Calcular cantidad disponible para devolución basada en devoluciones existentes
+      const devolucionesPorProducto = (venta.devoluciones || [])
+        .filter(dev => dev.productoId === detalle.productoId._id || dev.productoId === detalle.productoId);
       
-      return detalle.cantidad > cantidadDevuelta;
+      const cantidadDevuelta = devolucionesPorProducto
+        .reduce((sum, dev) => sum + (dev.cantidadDevuelta || 0), 0);
+      
+      const cantidadDisponible = detalle.cantidad - cantidadDevuelta;
+      
+      return cantidadDisponible > 0;
     }).map(detalle => {
-      const devoluciones = venta.devoluciones || [];
-      const cantidadDevuelta = devoluciones
-        .filter(dev => dev.productoId === detalle.productoId)
-        .reduce((sum, dev) => sum + dev.cantidadDevuelta, 0);
+      const devolucionesPorProducto = (venta.devoluciones || [])
+        .filter(dev => dev.productoId === detalle.productoId._id || dev.productoId === detalle.productoId);
+      
+      const cantidadDevuelta = devolucionesPorProducto
+        .reduce((sum, dev) => sum + (dev.cantidadDevuelta || 0), 0);
       
       return {
         ...detalle,
-        cantidadDisponible: detalle.cantidad - cantidadDevuelta
+        productoId: detalle.productoId._id || detalle.productoId,
+        nombre: detalle.productoId?.nombre || detalle.nombre,
+        cantidadDisponible: detalle.cantidad - cantidadDevuelta,
+        precioUnitario: detalle.precioUnitario
       };
     });
   }, [venta]);
-
   const handleItemSelection = useCallback((detalle) => {
-    const existingItem = selectedItems.find(item => item.productoId === detalle.productoId);
+    const productoId = detalle.productoId;
+    const existingItem = selectedItems.find(item => item.productoId === productoId);
     
     if (existingItem) {
-      setSelectedItems(prev => prev.filter(item => item.productoId !== detalle.productoId));
+      setSelectedItems(prev => prev.filter(item => item.productoId !== productoId));
     } else {
       setSelectedItems(prev => [...prev, {
-        productoId: detalle.productoId,
+        productoId: productoId,
         cantidadDevuelta: 1,
         montoDevolucion: detalle.precioUnitario,
         motivo: '',
-        nombreProducto: detalle.nombre || detalle.productoId?.nombre,
+        nombreProducto: detalle.nombre,
         cantidadOriginal: detalle.cantidad,
         cantidadDisponible: detalle.cantidadDisponible,
         precioUnitario: detalle.precioUnitario
@@ -201,9 +207,8 @@ const DevolucionModal = ({ isVisible, onClose, venta, onProcesarDevolucion, isPr
                         checked={isSelected}
                         onChange={() => handleItemSelection(detalle)}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900 text-xs">{detalle.nombre || detalle.productoId?.nombre}</div>
+                      />                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 text-xs">{detalle.nombre}</div>
                         <div className="text-[10px] text-gray-500">Disp: {detalle.cantidadDisponible} • S/ {detalle.precioUnitario.toFixed(2)}</div>
                       </div>
                     </div>

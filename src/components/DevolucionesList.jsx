@@ -74,15 +74,14 @@ function DevolucionesList() {
   // Función para agrupar devoluciones por venta
   const agruparDevoluciones = (devoluciones) => {
     console.log('🔍 DEBUG: Devoluciones a agrupar:', devoluciones); // Debug log
-    
-    const grupos = devoluciones.reduce((acc, devolucion) => {
+      const grupos = devoluciones.reduce((acc, devolucion) => {
       console.log('🔍 DEBUG: Procesando devolución:', devolucion); // Debug log
       
       const ventaId = devolucion.ventaId?._id;
       if (!ventaId) return acc;
 
       if (!acc[ventaId]) {
-        const fechaVenta = devolucion.ventaId?.fechaVenta || devolucion.ventaId?.fechadeVenta;
+        const fechaVenta = devolucion.ventaId?.fechaVenta; // Solo usar fechaVenta
         console.log('🔍 DEBUG: Fecha encontrada:', fechaVenta); // Debug log
         console.log('🔍 DEBUG: Venta completa:', devolucion.ventaId); // Debug log
         

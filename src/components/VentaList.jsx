@@ -302,8 +302,7 @@ function VentaList() {
       montoTotal: venta.montoTotal || 0,
       estadoPago: venta.estadoPago || 'Pendiente'
     }));
-  }, [ventas, ventasLimit]);
-  // Función para procesar una devolución
+  }, [ventas, ventasLimit]);  // Función para procesar una devolución
   const handleProcesarDevolucion = async (devolucionData) => {
     try {
       setProcessingDevolucion(true);
@@ -316,88 +315,38 @@ function VentaList() {
         throw new Error('Datos de devolución incompletos');
       }
 
-      // Procesar cada producto por separado
-      const resultados = [];
-      for (const item of devolucionData.items) {
-        // Validar que el item tenga los datos necesarios
-        if (!item.productoId || !item.cantidadDevuelta || item.cantidadDevuelta <= 0) {
-          console.warn('Item inválido saltado:', item);
-          continue;
-        }
-
-        // Formatear el payload para cada producto
-        const payload = {
-          ventaId: devolucionData.ventaId,
+      // Enviar toda la devolución en una sola petición
+      const payload = {
+        ventaId: devolucionData.ventaId,
+        fechaDevolucion: devolucionData.fechaDevolucion || new Date().toISOString(),
+        items: devolucionData.items.map(item => ({
           productoId: item.productoId,
           cantidadDevuelta: item.cantidadDevuelta,
           montoDevolucion: item.montoDevolucion,
-          motivo: item.motivo || 'Sin motivo especificado',
-          fechaDevolucion: new Date()
-        };
+          motivo: item.motivo || 'Sin motivo especificado'
+        }))
+      };
 
-        console.log(`Procesando devolución para producto ${item.productoId}:`, payload);
+      console.log('Payload de devolución enviado:', payload);
 
-        try {
-          // Hacer la petición al backend para este producto
-          const response = await api.post('/ventas/devoluciones', payload, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-
-          console.log(`Devolución exitosa para producto ${item.productoId}:`, response.data);
-          resultados.push({
-            productoId: item.productoId,
-            success: true,
-            data: response.data
-          });
-
-        } catch (productError) {
-          console.error(`Error al procesar devolución para producto ${item.productoId}:`, productError);
-          resultados.push({
-            productoId: item.productoId,
-            success: false,
-            error: productError.response?.data?.message || productError.message
-          });
+      const response = await api.post('/ventas/devoluciones', payload, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      }
-
-      // Verificar resultados
-      const exitosos = resultados.filter(r => r.success);
-      const fallidos = resultados.filter(r => !r.success);
-
-      console.log('Resultados del procesamiento:', { exitosos: exitosos.length, fallidos: fallidos.length });
-
-      // Actualizar los datos locales
-      await Promise.all([
-        fetchData(),
-        loadDevoluciones()
-      ]);
-
-      // Mostrar mensaje de resultado
-      if (fallidos.length === 0) {
-        toast.success(`${exitosos.length} devolución(es) procesada(s) exitosamente`);
-      } else if (exitosos.length > 0) {
-        toast.warning(`${exitosos.length} devolución(es) exitosa(s), ${fallidos.length} fallida(s)`);
-      } else {
-        toast.error('No se pudo procesar ninguna devolución');
-        return; // No cerrar el modal si todas fallaron
-      }
-
-      // Cerrar el modal
-      setShowDevolucionModal(false);
-
-    } catch (error) {
-      console.error('Error general al procesar devoluciones:', {
-        mensaje: error.message,        respuesta: error.response?.data,
-        status: error.response?.status,
-        config: error.config
       });
-      
+
+      console.log('Respuesta de devolución:', response.data);
+
+      // Recargar datos
+      await Promise.all([fetchData(), loadDevolucionesSecondary()]);
+
+      toast.success(response.data.message || 'Devolución procesada exitosamente');
+    } catch (error) {
+      console.error('Error al procesar devolución:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Error al procesar la devolución';
-      toast.error(`Error al procesar devoluciones: ${errorMessage}`);
-    } finally {
+      toast.error(errorMessage);
+      throw error;    } finally {
       setProcessingDevolucion(false);
     }
   };

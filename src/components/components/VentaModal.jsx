@@ -241,13 +241,23 @@ const VentaModal = ({
           precioUnitario: parseFloat(item.precioUnitario),
           subtotal: parseFloat(item.subtotal)
         });
-      }      const ventaPayload = {
+      }      // Preparar fecha - convertir a formato ISO si se proporciona
+      let fechaVentaFinal = null;
+      if (ventaData.fechaVenta) {
+        // Crear una fecha en la zona horaria local
+        const fechaLocal = new Date(ventaData.fechaVenta);
+        fechaVentaFinal = fechaLocal.toISOString();
+        console.log('Fecha original:', ventaData.fechaVenta);
+        console.log('Fecha convertida a ISO:', fechaVentaFinal);
+      }
+
+      const ventaPayload = {
         colaboradorId: ventaData.colaboradorId,
         detalles: detallesValidados,
         total: parseFloat(resumen.total.toFixed(2)),
         estadoPago: ventaData.estadoPago || 'Pendiente',
         cantidadPagada: ventaData.estadoPago === 'Pagado' ? parseFloat(resumen.total.toFixed(2)) : 0,
-        fechaVenta: ventaData.fechaVenta ? new Date(ventaData.fechaVenta).toISOString() : new Date().toISOString()
+        fechaVenta: fechaVentaFinal
       };
 
       console.log('Payload de venta a enviar:', JSON.stringify(ventaPayload, null, 2)); // Debug detallado
