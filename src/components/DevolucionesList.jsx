@@ -5,41 +5,50 @@ import api from '../services/api';
 
 function DevolucionesList() {
   const { getToken } = useAuth();
-  const [devoluciones, setDevoluciones] = useState([]);
+  const [todasLasDevoluciones, setTodasLasDevoluciones] = useState([]);
   const [isLoadingDevoluciones, setIsLoadingDevoluciones] = useState(false);
   const [devolucionesError, setDevolucionesError] = useState(null);
-  const [devolucionesLimit, setDevolucionesLimit] = useState(20);
-  const [devolucionesCurrentPage, setDevolucionesCurrentPage] = useState(1);
-
-  // Cargar devoluciones
+  const [devolucionesVisibles, setDevolucionesVisibles] = useState(10);
+  const [totalDevoluciones, setTotalDevoluciones] = useState(0);
+  // Cargar todas las devoluciones
   const loadDevoluciones = useCallback(async () => {
     try {
       setIsLoadingDevoluciones(true);
       setDevolucionesError(null);
       
       const token = await getToken();
+      
+      // Cargar todas las devoluciones sin límite de paginación
       const response = await api.get('/ventas/devoluciones', {
-        params: { page: devolucionesCurrentPage, limit: 10 },
+        params: { page: 1, limit: 1000 }, // Límite alto para obtener todas
         headers: { 'Authorization': `Bearer ${token}` }
-      });      if (response.data && Array.isArray(response.data.devoluciones)) {
-        console.log('🔍 DEBUG: Devoluciones recibidas del backend:', response.data.devoluciones); // Debug log
-        setDevoluciones(response.data.devoluciones);
+      });
+      
+      console.log('🔍 DEBUG: Respuesta completa del backend:', response.data);
+      
+      if (response.data && Array.isArray(response.data.devoluciones)) {
+        console.log('🔍 DEBUG: Total devoluciones recibidas:', response.data.devoluciones.length);
+        setTodasLasDevoluciones(response.data.devoluciones);
+        setTotalDevoluciones(response.data.devoluciones.length);
       } else if (response.data && Array.isArray(response.data)) {
-        console.log('🔍 DEBUG: Devoluciones como array directo:', response.data); // Debug log
-        setDevoluciones(response.data);
+        console.log('🔍 DEBUG: Devoluciones como array directo:', response.data.length);
+        setTodasLasDevoluciones(response.data);
+        setTotalDevoluciones(response.data.length);
       } else {
         console.warn('Formato de respuesta inesperado:', response.data);
-        setDevoluciones([]);
+        setTodasLasDevoluciones([]);
+        setTotalDevoluciones(0);
       }
     } catch (error) {
       console.error('Error al cargar devoluciones:', error);
       setDevolucionesError(error.message || 'Error al cargar las devoluciones');
-      setDevoluciones([]);
+      setTodasLasDevoluciones([]);
+      setTotalDevoluciones(0);
       toast.error('Error al cargar las devoluciones');
     } finally {
       setIsLoadingDevoluciones(false);
     }
-  }, [getToken, devolucionesCurrentPage]);
+  }, [getToken]);
 
   useEffect(() => {
     loadDevoluciones();
@@ -64,26 +73,23 @@ function DevolucionesList() {
       toast.error(error.response?.data?.message || 'Error al eliminar la devolución');
     }
   };
-
-  // Función para cargar más devoluciones
-  const handleLoadMoreDevoluciones = () => {
-    setDevolucionesLimit(prev => prev + 20);
-    setDevolucionesCurrentPage(prev => prev + 1);
+  // Función para mostrar más devoluciones
+  const handleVerMas = () => {
+    setDevolucionesVisibles(prev => prev + 20);
   };
-
   // Función para agrupar devoluciones por venta
   const agruparDevoluciones = (devoluciones) => {
-    console.log('🔍 DEBUG: Devoluciones a agrupar:', devoluciones); // Debug log
-      const grupos = devoluciones.reduce((acc, devolucion) => {
-      console.log('🔍 DEBUG: Procesando devolución:', devolucion); // Debug log
-      
+    console.log('🔍 DEBUG: Devoluciones a agrupar:', devoluciones.length);
+    
+    const grupos = devoluciones.reduce((acc, devolucion) => {
       const ventaId = devolucion.ventaId?._id;
-      if (!ventaId) return acc;
+      if (!ventaId) {
+        console.log('🚨 DEBUG: Devolución sin ventaId válido:', devolucion);
+        return acc;
+      }
 
       if (!acc[ventaId]) {
-        const fechaVenta = devolucion.ventaId?.fechaVenta; // Solo usar fechaVenta
-        console.log('🔍 DEBUG: Fecha encontrada:', fechaVenta); // Debug log
-        console.log('🔍 DEBUG: Venta completa:', devolucion.ventaId); // Debug log
+        const fechaVenta = devolucion.ventaId?.fechaVenta;
         
         acc[ventaId] = {
           ventaId: ventaId,
@@ -105,7 +111,9 @@ function DevolucionesList() {
       return acc;
     }, {});
 
-    return Object.values(grupos);
+    const gruposArray = Object.values(grupos);
+    console.log('🔍 DEBUG: Grupos creados:', gruposArray.length);
+    return gruposArray;
   };
 
   // Función para formatear la fecha
@@ -131,7 +139,6 @@ function DevolucionesList() {
       return 'Error en fecha';
     }
   };
-
   // Renderizar la tabla de devoluciones
   const renderDevolucionesTable = () => {
     if (isLoadingDevoluciones) {
@@ -152,10 +159,22 @@ function DevolucionesList() {
       );
     }
 
-    const devolucionesAgrupadas = agruparDevoluciones(devoluciones);
+    // Agrupar todas las devoluciones y luego tomar solo las visibles
+    const todasAgrupadas = agruparDevoluciones(todasLasDevoluciones);
+    const devolucionesAMostrar = todasAgrupadas.slice(0, devolucionesVisibles);
+    
+    console.log('🔍 DEBUG: Total agrupadas:', todasAgrupadas.length);
+    console.log('🔍 DEBUG: Mostrando:', devolucionesAMostrar.length);
+    console.log('🔍 DEBUG: Visibles configuradas:', devolucionesVisibles);
 
     return (
       <div className="overflow-x-auto">
+        {/* Información de totales */}
+        <div className="mb-4 text-sm text-gray-600">
+          Mostrando {devolucionesAMostrar.length} de {todasAgrupadas.length} grupos de devoluciones 
+          ({totalDevoluciones} devoluciones individuales en total)
+        </div>
+        
         <table className="min-w-full table-auto border-collapse border border-gray-300">
           <thead className="bg-gray-100">
             <tr>
@@ -167,8 +186,8 @@ function DevolucionesList() {
             </tr>
           </thead>
           <tbody>
-            {devolucionesAgrupadas.length > 0 ? (
-              devolucionesAgrupadas.map((grupo) => (
+            {devolucionesAMostrar.length > 0 ? (
+              devolucionesAMostrar.map((grupo) => (
                 <tr key={grupo.ventaId} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-sm text-gray-600 border-b">
                     {grupo.colaborador}
@@ -218,13 +237,14 @@ function DevolucionesList() {
           </tbody>
         </table>
         
-        {devoluciones.length > devolucionesLimit && (
+        {/* Botón Ver Más - solo se muestra si hay más grupos por mostrar */}
+        {devolucionesAMostrar.length < todasAgrupadas.length && (
           <div className="flex justify-center mt-4">
             <button
-              onClick={handleLoadMoreDevoluciones}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              onClick={handleVerMas}
+              className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
             >
-              Cargar más
+              Ver más ({Math.min(20, todasAgrupadas.length - devolucionesAMostrar.length)} más)
             </button>
           </div>
         )}

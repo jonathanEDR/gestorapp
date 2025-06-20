@@ -17,12 +17,11 @@ function VentaList() {
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Estados de UI
+    // Estados de UI
   const [selectedRange, setSelectedRange] = useState('month');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [ventasLimit, setVentasLimit] = useState(20);
+  const [ventasVisibles, setVentasVisibles] = useState(10); // Mostrar 10 ventas inicialmente
 
   // Estados para devoluciones
   const [processingDevolucion, setProcessingDevolucion] = useState(false);
@@ -76,7 +75,6 @@ function VentaList() {
       setLoading(false);
     }
   }, [getToken]);
-
   // Cargar devoluciones por separado
   const loadDevoluciones = useCallback(async () => {
     try {
@@ -84,55 +82,89 @@ function VentaList() {
       setError(null);
       
       const token = await getToken();
-      if (!token) return;
+      if (!token) return;      console.log('🔍 DEBUG loadDevoluciones: Iniciando carga de devoluciones...');
 
+      // CARGAR TODAS LAS DEVOLUCIONES - sin límite de paginación
       const response = await api.get('/ventas/devoluciones', {
+        params: { page: 1, limit: 1000 }, // Límite alto para obtener todas
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setDevoluciones(response.data.devoluciones || []);
+      console.log('🔍 DEBUG loadDevoluciones: Respuesta recibida:', response.data);
+
+      const devolucionesRecibidas = response.data.devoluciones || [];
+      console.log('🔍 DEBUG loadDevoluciones: Total devoluciones recibidas:', devolucionesRecibidas.length);
+
+      setDevoluciones(devolucionesRecibidas);
+      console.log('🔍 DEBUG loadDevoluciones: Estado actualizado con', devolucionesRecibidas.length, 'devoluciones');
     } catch (error) {
-      console.error('Error al cargar devoluciones:', error);
+      console.error('❌ Error al cargar devoluciones en loadDevoluciones:', error);
       setError(error.message);
     } finally {
       setLoading(false);
     }
-  }, [getToken]);
-  // Effect principal para cargar datos iniciales
+  }, [getToken]);  // Effect principal para cargar datos iniciales
   useEffect(() => {
     fetchData();
     loadDevoluciones();
   }, [fetchData, loadDevoluciones]);
 
+  // Effect para monitorear cambios en el estado de devoluciones
+  useEffect(() => {
+    console.log('🔍 DEBUG: Estado de devoluciones actualizado:', {
+      cantidad: devoluciones.length,
+      devoluciones: devoluciones.slice(0, 3) // Solo las primeras 3 para no saturar logs
+    });
+    
+    // Mostrar todos los ventaIds únicos en las devoluciones
+    if (devoluciones.length > 0) {
+      const ventaIds = devoluciones.map(dev => dev.ventaId?._id || dev.ventaId);
+      const ventaIdsUnicos = [...new Set(ventaIds)];
+      console.log('🔍 DEBUG: VentaIds únicos en devoluciones:', ventaIdsUnicos.slice(0, 10)); // Solo los primeros 10
+    }
+  }, [devoluciones]);
+
+  // Effect para monitorear cambios en el estado de devoluciones
+  useEffect(() => {
+    console.log('🔍 DEBUG useEffect: Estado de devoluciones cambió:', {
+      cantidad: devoluciones.length,
+      devoluciones: devoluciones
+    });
+  }, [devoluciones]);
   // Función para cargar devoluciones (movida aquí)
   const loadDevolucionesSecondary = useCallback(async () => {
     try {
       setLoading(true);
       const token = await getToken();
+        console.log('🔍 DEBUG loadDevolucionesSecondary: Iniciando carga secundaria de devoluciones...');
       
-      console.log('Intentando cargar devoluciones...'); // Debug log
-      
+      // CARGAR TODAS LAS DEVOLUCIONES - sin límite de paginación
       const response = await api.get('/ventas/devoluciones', {
+        params: { page: 1, limit: 1000 }, // Límite alto para obtener todas
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
-      console.log('Respuesta de devoluciones:', response.data); // Debug log
+      console.log('🔍 DEBUG loadDevolucionesSecondary: Respuesta completa:', response.data);
 
       let devolucionesProcesadas = [];
       if (response.data && Array.isArray(response.data.devoluciones)) {
         devolucionesProcesadas = response.data.devoluciones;
+        console.log('🔍 DEBUG loadDevolucionesSecondary: Usando response.data.devoluciones');
       } else if (Array.isArray(response.data)) {
         devolucionesProcesadas = response.data;
+        console.log('🔍 DEBUG loadDevolucionesSecondary: Usando response.data directamente');
       }
 
-      console.log('Devoluciones procesadas:', devolucionesProcesadas); // Debug log
+      console.log('🔍 DEBUG loadDevolucionesSecondary: Total devoluciones procesadas:', devolucionesProcesadas.length);
+      console.log('🔍 DEBUG loadDevolucionesSecondary: Devoluciones procesadas:', devolucionesProcesadas);
       
       setDevoluciones(devolucionesProcesadas);
+      console.log('🔍 DEBUG loadDevolucionesSecondary: Estado actualizado con', devolucionesProcesadas.length, 'devoluciones');
     } catch (error) {
-      console.error('Error detallado al cargar devoluciones:', {
+      console.error('❌ Error detallado al cargar devoluciones en loadDevolucionesSecondary:', {
         mensaje: error.message,
         respuesta: error.response?.data,
         status: error.response?.status,
@@ -259,50 +291,89 @@ function VentaList() {
   };
   const handleOpenModal = () => {
     setIsModalVisible(true);
-  };
-  const handleCloseModal = () => {
+  };  const handleCloseModal = () => {
     setIsModalVisible(false);
   };
 
-  const handleLoadMoreVentas = () => {
-    setVentasLimit(prev => prev + 20);
+  // Función para mostrar más ventas
+  const handleVerMasVentas = () => {
+    setVentasVisibles(prev => prev + 20);
   };
 
   // Función para abrir el modal de devolución (ahora con useCallback para evitar warning)
   const abrirModalDevolucion = useCallback((venta) => {
     setVentaSeleccionada(venta);
     setShowDevolucionModal(true);
-  }, []);
-
-  // Función para obtener devoluciones por venta
+  }, []);  // Función para obtener devoluciones por venta
   const getDevolucionesPorVenta = useCallback((venta) => {
-    if (!venta || !Array.isArray(devoluciones)) return [];
+    if (!venta || !Array.isArray(devoluciones)) {
+      console.log('🔍 DEBUG getDevolucionesPorVenta: Sin venta o devoluciones no es array:', { venta: !!venta, devoluciones: Array.isArray(devoluciones) });
+      return [];
+    }
 
-    return devoluciones.filter(dev => {
+    console.log('🔍 DEBUG getDevolucionesPorVenta: Buscando devoluciones para venta:', venta._id);
+    console.log('🔍 DEBUG getDevolucionesPorVenta: Total devoluciones disponibles:', devoluciones.length);
+    
+    // Debug: Mostrar una muestra de devoluciones para ver la estructura
+    if (devoluciones.length > 0) {
+      console.log('🔍 DEBUG: Muestra de devolución:', {
+        devolucion: devoluciones[0],
+        ventaId: devoluciones[0].ventaId,
+        ventaIdType: typeof devoluciones[0].ventaId,
+        ventaIdValue: devoluciones[0].ventaId?._id || devoluciones[0].ventaId
+      });
+    }
+    
+    // Debug: Mostrar datos de la venta
+    console.log('🔍 DEBUG: Datos de venta:', {
+      ventaId: venta._id,
+      ventaIdType: typeof venta._id
+    });
+
+    const devolucionesFiltradas = devoluciones.filter(dev => {
       const devVentaId = dev.ventaId?._id || dev.ventaId;
       const ventaId = venta._id;
-      const match = devVentaId === ventaId;
+      
+      // Convertir ambos a string para comparación segura
+      const devVentaIdStr = String(devVentaId);
+      const ventaIdStr = String(ventaId);
+      
+      const match = devVentaIdStr === ventaIdStr;
 
-      // Log para debug
-      if (match) {
-        console.log(`Devolución encontrada para venta ${ventaId}:`, dev);
+      // Log detallado solo para las primeras comparaciones
+      if (devoluciones.indexOf(dev) < 3) {
+        console.log(`🔍 DEBUG comparación ${devoluciones.indexOf(dev)}:`, {
+          devVentaId: devVentaIdStr,
+          ventaId: ventaIdStr,
+          match: match
+        });
       }
 
       return match;
     });
-  }, [devoluciones]);
 
+    console.log(`🔍 DEBUG getDevolucionesPorVenta: Encontradas ${devolucionesFiltradas.length} devoluciones para venta ${venta._id}`);
+    return devolucionesFiltradas;
+  }, [devoluciones]);
   // Memo para manejar ventas de forma segura
   const ventasSeguras = useMemo(() => {
     if (!Array.isArray(ventas)) return [];
-    return ventas.slice(0, ventasLimit).map(venta => ({
+    
+    // Tomar solo las ventas visibles (paginación en frontend)
+    const ventasParaMostrar = ventas.slice(0, ventasVisibles);
+    
+    console.log('🔍 DEBUG: Total ventas:', ventas.length);
+    console.log('🔍 DEBUG: Ventas visibles configuradas:', ventasVisibles);
+    console.log('🔍 DEBUG: Ventas a mostrar:', ventasParaMostrar.length);
+    
+    return ventasParaMostrar.map(venta => ({
       ...venta,
       detalles: Array.isArray(venta.detalles) ? venta.detalles : [],
       colaboradorId: venta.colaboradorId || { nombre: 'N/A' },
       montoTotal: venta.montoTotal || 0,
       estadoPago: venta.estadoPago || 'Pendiente'
     }));
-  }, [ventas, ventasLimit]);  // Función para procesar una devolución
+  }, [ventas, ventasVisibles]);// Función para procesar una devolución
   const handleProcesarDevolucion = async (devolucionData) => {
     try {
       setProcessingDevolucion(true);
@@ -714,16 +785,16 @@ function VentaList() {
         </button>
       {/* Tabla de Ventas */}
       <div className="mb-8">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Lista de Ventas</h3>
-        {renderTablaVentas()}
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Lista de Ventas</h3>        {renderTablaVentas()}
         
-        {!loading && ventas.length > ventasLimit && (
+        {/* Botón Ver más ventas */}
+        {!loading && ventas.length > ventasVisibles && (
           <div className="flex justify-center mt-4">
             <button
-              onClick={handleLoadMoreVentas}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+              onClick={handleVerMasVentas}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
-              Cargar más ventas
+              Ver más ({ventas.length - ventasVisibles} restantes)
             </button>
           </div>
         )}

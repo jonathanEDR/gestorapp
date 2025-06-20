@@ -45,7 +45,6 @@ function CobroList() {
 const [isSubmittingCobro, setIsSubmittingCobro] = useState(false);  // Función para cargar cobros (inicial y "ver más")
   const fetchCobros = useCallback(async (reset = false) => {
     try {
-      const currentOffset = reset ? 0 : offset;
       setLoading(reset ? true : false);
       setLoadingMore(reset ? false : true);
       
@@ -54,6 +53,11 @@ const [isSubmittingCobro, setIsSubmittingCobro] = useState(false);  // Función 
         alert('No estás autorizado');
         return;
       }
+
+      // Usar el offset actual del estado, no del parámetro
+      const currentOffset = reset ? 0 : offset;
+      
+      console.log('🔍 DEBUG fetchCobros:', { reset, currentOffset, offset });
 
       const response = await api.get(`/cobros?offset=${currentOffset}&limit=20`, {
         headers: {
@@ -64,6 +68,13 @@ const [isSubmittingCobro, setIsSubmittingCobro] = useState(false);  // Función 
       if (response.data) {
         const { cobros: newCobros, allCobrosForCharts, hasMore: moreAvailable, isFirstLoad } = response.data;
         
+        console.log('🔍 DEBUG Response:', { 
+          newCobrosCount: newCobros?.length, 
+          moreAvailable, 
+          isFirstLoad,
+          currentOffset 
+        });
+        
         if (reset || isFirstLoad) {
           // Primera carga: reemplazar todos los datos
           setCobros(newCobros);
@@ -73,8 +84,20 @@ const [isSubmittingCobro, setIsSubmittingCobro] = useState(false);  // Función 
           setOffset(newCobros.length);
         } else {
           // Cargar más: agregar a los existentes
-          setCobros(prev => [...prev, ...newCobros]);
-          setOffset(prev => prev + newCobros.length);
+          setCobros(prev => {
+            const updated = [...prev, ...newCobros];
+            console.log('🔍 DEBUG Cobros actualizados:', { 
+              prevCount: prev.length, 
+              newCount: newCobros.length, 
+              totalCount: updated.length 
+            });
+            return updated;
+          });
+          setOffset(prev => {
+            const newOffset = prev + newCobros.length;
+            console.log('🔍 DEBUG Offset actualizado:', { prev, added: newCobros.length, newOffset });
+            return newOffset;
+          });
         }
         
         setHasMore(moreAvailable);
@@ -87,7 +110,7 @@ const [isSubmittingCobro, setIsSubmittingCobro] = useState(false);  // Función 
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [getToken, offset]);// Nueva función: obtener ventas individuales con deuda pendiente
+  }, [getToken]); // Remover offset de las dependencias// Nueva función: obtener ventas individuales con deuda pendiente
   const fetchVentasPendientesIndividuales = useCallback(async () => {
     try {
       const token = await getToken();
@@ -96,6 +119,7 @@ const [isSubmittingCobro, setIsSubmittingCobro] = useState(false);  // Función 
         return;
       }
       
+      console.log('🔍 DEBUG: Iniciando fetchVentasPendientesIndividuales...');
       console.log('Obteniendo ventas individuales con deudas pendientes...');
       
       // Usar la nueva ruta para obtener ventas individuales
@@ -273,7 +297,12 @@ const handleAddCobro = async () => {
       await api.delete(`/cobros/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });      // Refrescar la lista después de eliminar
+      console.log('🔄 Refrescando cobros después de eliminar...');
+      await new Promise(resolve => setTimeout(resolve, 500)); // Pequeña pausa
       refreshCobros();
+      console.log('🔄 Refrescando ventas pendientes después de eliminar...');
+      await new Promise(resolve => setTimeout(resolve, 500)); // Pequeña pausa
+      fetchVentasPendientesIndividuales(); // ¡AGREGAR ESTA LÍNEA!
       alert('Cobro eliminado exitosamente');
     } catch (error) {
       console.error('Error al eliminar el cobro:', error);
@@ -294,9 +323,65 @@ const handleRangeChange = (range) => {
 
 
 // Función para cargar más cobros
-  const loadMoreCobros = () => {
-    fetchCobros(false);
-  };
+  const loadMoreCobros = useCallback(async () => {
+    if (loadingMore || !hasMore) {
+      console.log('🔍 DEBUG loadMoreCobros: Cancelado', { loadingMore, hasMore });
+      return;
+    }
+    
+    console.log('🔍 DEBUG loadMoreCobros: Iniciando carga con offset:', offset);
+    
+    try {
+      setLoadingMore(true);
+      
+      const token = await getToken();
+      if (!token) {
+        alert('No estás autorizado');
+        return;
+      }
+
+      const response = await api.get(`/cobros?offset=${offset}&limit=20`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.data) {
+        const { cobros: newCobros, hasMore: moreAvailable } = response.data;
+        
+        console.log('🔍 DEBUG loadMoreCobros Response:', { 
+          newCobrosCount: newCobros?.length, 
+          moreAvailable,
+          currentOffset: offset 
+        });
+        
+        if (newCobros && newCobros.length > 0) {
+          setCobros(prev => {
+            const updated = [...prev, ...newCobros];
+            console.log('🔍 DEBUG Cobros actualizados en loadMore:', { 
+              prevCount: prev.length, 
+              newCount: newCobros.length, 
+              totalCount: updated.length 
+            });
+            return updated;
+          });
+          
+          setOffset(prev => {
+            const newOffset = prev + newCobros.length;
+            console.log('🔍 DEBUG Offset actualizado en loadMore:', { prev, added: newCobros.length, newOffset });
+            return newOffset;
+          });
+        }
+        
+        setHasMore(moreAvailable);
+      }
+    } catch (error) {
+      console.error('Error al cargar más cobros:', error);
+      alert('Error al cargar más cobros');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [getToken, offset, loadingMore, hasMore]);
 
   // Función para refrescar toda la lista
   const refreshCobros = () => {

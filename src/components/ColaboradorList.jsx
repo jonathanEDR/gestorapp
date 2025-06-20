@@ -2,11 +2,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import api from '../services/api'; // Ajusta la ruta si es necesario
 import { useAuth } from '@clerk/clerk-react';
 import GestionPersonalChart from './graphics/GestionPersonalChart';
-import GestionPersonal from './GestionPersonal';
 
 
 function ColaboradorList() {
-const [colaboradores, setColaboradores] = useState([]);
+  const [colaboradores, setColaboradores] = useState([]);
+  const [registros, setRegistros] = useState([]); // Para el gráfico
   const [newColaborador, setNewColaborador] = useState({
     nombre: '',
     email: '',
@@ -19,11 +19,9 @@ const [colaboradores, setColaboradores] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-const departamentos = ['Producción', 'Ventas', 'Administración', 'Financiero'];
-const [registros, setRegistros] = useState([]); // Estado para los registros del gráfico
-  const [activeSection, setActiveSection] = useState('colaboradores'); // Agregar este estado
+  const departamentos = ['Producción', 'Ventas', 'Administración', 'Financiero'];
   const { isLoaded, isSignedIn, getToken } = useAuth();
-const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
 
   // Función para obtener colaboradores
@@ -45,34 +43,30 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       console.error('Error al obtener colaboradores:', error);
       setError('Error al cargar colaboradores');
     } finally {
-      setIsLoading(false);
-    }
+      setIsLoading(false);    }
   }, [isLoaded, isSignedIn, getToken]);
 
-  // Agregar función para obtener registros
+  useEffect(() => {
+    fetchColaboradores();
+    fetchRegistros(); // También cargar registros para el gráfico
+  }, [fetchColaboradores]);
+
+  // Función para obtener registros de gestión personal
   const fetchRegistros = useCallback(async () => {
-    if (!isLoaded || !isSignedIn) return;
+    if (!isLoaded || !isSignedIn) {
+      return;
+    }
 
     try {
       const token = await getToken();
       const response = await api.get('/gestion-personal', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setRegistros(response.data);
     } catch (error) {
       console.error('Error al obtener registros:', error);
     }
   }, [isLoaded, isSignedIn, getToken]);
-
-
-
-
-  useEffect(() => {
-    fetchColaboradores();
-    fetchRegistros(); // Agregar esta línea
-
-  }, [fetchColaboradores, fetchRegistros]);
-
 
 
 
@@ -182,7 +176,6 @@ const [isSubmitting, setIsSubmitting] = useState(false);
     setNewColaborador({ nombre: '', email: '', telefono: '', departamento: '', sueldo: 0 });
     setShowForm(false);
   };
-
   const toggleFormVisibility = () => {
     if (showForm && editing) {
       handleCancelEdit();
@@ -191,60 +184,18 @@ const [isSubmitting, setIsSubmitting] = useState(false);
     }
   };
 
-// Agregar esta función después de toggleFormVisibility
-const handleSectionChange = (section) => {
-  setActiveSection(section);
-};
-
   return (
- <div className="container mx-auto p-4">
-    <div className="flex justify-between items-center mb-6">
-      <h1 className="text-2xl font-bold">Gestión de Colaboradores</h1>
-      
-      <div className="flex gap-4">
-        <button 
-          onClick={() => handleSectionChange('colaboradores')}
-          className={`px-4 py-2 rounded-lg transition-colors ${
-            activeSection === 'colaboradores' ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-blue-500 hover:text-white'
-          }`}
-        >
-          Lista de Colaboradores
-        </button>
-        <button 
-          onClick={() => handleSectionChange('gestionPersonal')}
-          className={`px-4 py-2 rounded-lg transition-colors ${
-            activeSection === 'gestionPersonal' ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-blue-500 hover:text-white'
-          }`}
-        >
-          Gestión Personal
-        </button>
-      </div>
-    </div>
-
-
-    {activeSection === 'colaboradores' ? (
-      <>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Gestión de Colaboradores</h1>
+        
         <button 
           onClick={toggleFormVisibility}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4"
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >
           {showForm ? 'Cancelar' : (editing ? 'Editar Colaborador' : 'Agregar Colaborador')}
         </button>
-      </>
-      ) : (
-        <GestionPersonal />
-      )}
-
-
-    <div className="mt-12 bg-white rounded-xl shadow-sm p-6">
-      <h2 className="text-xl font-bold mb-6 text-gray-800">
-        Gráfico de Gestión Personal
-      </h2>
-      
-      <div className="h-[500px] w-full">
-        <GestionPersonalChart registros={registros} />
       </div>
-    </div>
 
 
 
@@ -388,14 +339,20 @@ const handleSectionChange = (section) => {
                 </tr>
               )}
             </tbody>
-          </table>
-
-
-
-        </div>
+          </table>        </div>
         
       )}
 
+      {/* Gráfico de Gestión Personal */}
+      <div className="mt-12 bg-white rounded-xl shadow-sm p-6">
+        <h2 className="text-xl font-bold mb-6 text-gray-800">
+          Gráfico de Gestión Personal de Colaboradores
+        </h2>
+        
+        <div className="h-[500px] w-full">
+          <GestionPersonalChart registros={registros} />
+        </div>
+      </div>
 
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { useAuth } from '@clerk/clerk-react';
+import PagosRealizados from './PagosRealizados';
 
 function GestionPersonal() {
 
@@ -39,11 +40,11 @@ function GestionPersonal() {
   const [colaboradorDetalle, setColaboradorDetalle] = useState(null); // Para vista detalle
   const [filtroFecha, setFiltroFecha] = useState('month'); // 'semana', 'mes', 'año', 'historico'
   const [fechaInicio, setFechaInicio] = useState(null);
-  const [fechaFin, setFechaFin] = useState(null);
-  const [customDateRange, setCustomDateRange] = useState({
+  const [fechaFin, setFechaFin] = useState(null);  const [customDateRange, setCustomDateRange] = useState({
   start: '',
   end: ''
 });
+  const [vistaActivaGestion, setVistaActivaGestion] = useState('registros'); // 'registros' o 'pagos'
 
 
   useEffect(() => {
@@ -388,7 +389,6 @@ const handleCustomDateRange = () => {
 };
 
 
-
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
@@ -430,11 +430,45 @@ const handleCustomDateRange = () => {
             </div>
       </div>
 
+      {/* Pestañas de navegación */}
+      <div className="mb-6">
+        <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl">
+          <button
+            onClick={() => setVistaActivaGestion('registros')}
+            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
+              vistaActivaGestion === 'registros'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            📝 Registros de Trabajo
+          </button>
+          <button
+            onClick={() => setVistaActivaGestion('pagos')}
+            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
+              vistaActivaGestion === 'pagos'
+                ? 'bg-white text-green-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            💰 Pagos Realizados
+          </button>
+        </div>
+      </div>
+
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
         </div>
       )}
+
+      {/* Contenido según la pestaña activa */}
+      {vistaActivaGestion === 'pagos' ? (
+        <PagosRealizados />
+      ) : (
+        <>
+          {/* Contenido original del componente (registros de trabajo) */}
+          {/* ... resto del código existente ... */}
 
 <div className="mb-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100/50 p-6">
   <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -941,15 +975,16 @@ const handleCustomDateRange = () => {
                 Cancelar
               </button>
               <button
-                onClick={confirmarEliminarRegistro}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-              >
-                Eliminar
+                onClick={confirmarEliminarRegistro}                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              >                Eliminar
               </button>
-            </div>
+            </div>          
           </div>
         </div>
       )}
+        </>
+      )}
+      
     </div>
   );
 }
