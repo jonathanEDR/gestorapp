@@ -46,14 +46,12 @@ const ProductSalesAnalysisChart = ({ ventas, selectedRange, onRangeChange }) => 
 
   // Filtrar las ventas según el rango seleccionado
   const filteredData = useMemo(() => {
-    if (!ventas || ventas.length === 0) return [];
-
-    const ventasConFechasValidas = ventas.map(venta => {
-      let fechaValida = parseDate(venta.fechadeVenta);
+    if (!ventas || ventas.length === 0) return [];    const ventasConFechasValidas = ventas.map(venta => {
+      let fechaValida = parseDate(venta.fechaVenta);
       return {
         ...venta,
         fechaVenta: fechaValida,
-        fechaOriginal: venta.fechadeVenta
+        fechaOriginal: venta.fechaVenta
       };
     });
 
@@ -238,7 +236,6 @@ const ProductSalesAnalysisChart = ({ ventas, selectedRange, onRangeChange }) => 
 
     return intervals;
   };
-
   // Agrupar datos por productos y cantidades
   const groupedProductData = useMemo(() => {
     if (filteredData.length === 0) {
@@ -249,6 +246,12 @@ const ProductSalesAnalysisChart = ({ ventas, selectedRange, onRangeChange }) => 
       };
     }
 
+    console.log('Estructura de datos de ventas recibidas:', {
+      totalVentas: filteredData.length,
+      primeraVenta: filteredData[0],
+      estructuraDetalle: filteredData[0]?.detalles?.[0]
+    });
+
     const timeIntervals = generateTimeIntervals(selectedRange);
     const groupedQuantities = {};
     const productosDetalle = {}; // Para guardar el detalle de productos por período
@@ -257,36 +260,67 @@ const ProductSalesAnalysisChart = ({ ventas, selectedRange, onRangeChange }) => 
     timeIntervals.forEach(interval => {
       groupedQuantities[interval.key] = 0;
       productosDetalle[interval.key] = {};
-    });
-
-    // Agrupar cantidades y productos
+    });    // Agrupar cantidades y productos
     console.log('Datos filtrados:', filteredData);
 
-// Modifica la sección donde se agrupan los datos en groupedProductData
-filteredData.forEach((venta) => {
-  console.log('Venta procesada:', {
-    cantidad: venta.cantidad,
-    producto: venta.productoId?.nombre,
-    fecha: venta.fechadeVenta
-  });
-  
-  const cantidad = parseInt(venta.cantidad) || 0;
-  // Modificar esta línea para acceder correctamente al nombre del producto
-  const nombreProducto = venta.productoId?.nombre || 'Producto sin nombre';
-  const date = new Date(venta.fechaVenta);
-  const key = getGroupingFormat(date, selectedRange);
+    // Procesar cada venta y sus detalles
+    filteredData.forEach((venta) => {
+      console.log('Venta procesada:', {
+        id: venta._id,
+        fecha: venta.fechaVenta,
+        detalles: venta.detalles
+      });
+      
+      const date = new Date(venta.fechaVenta);
+      const key = getGroupingFormat(date, selectedRange);      // Solo procesar si la fecha está en el rango válido
+      if (key in groupedQuantities && venta.detalles && Array.isArray(venta.detalles)) {
+        // Procesar cada detalle de la venta
+        venta.detalles.forEach((detalle) => {
+          // Validar que el detalle tenga los datos necesarios
+          if (!detalle || typeof detalle !== 'object') {
+            console.warn('Detalle inválido encontrado:', detalle);
+            return;
+          }
 
-  if (key in groupedQuantities) {
-    // Sumar cantidades totales
-    groupedQuantities[key] += cantidad;
-    
-    // Agrupar productos específicos
-    if (!productosDetalle[key][nombreProducto]) {
-      productosDetalle[key][nombreProducto] = 0;
-    }
-    productosDetalle[key][nombreProducto] += cantidad;
-  }
-});
+          const cantidad = parseInt(detalle.cantidad) || 0;
+          
+          // Manejar diferentes estructuras posibles del producto
+          let nombreProducto = 'Producto sin nombre';
+          if (detalle.productoId) {
+            if (typeof detalle.productoId === 'string') {
+              nombreProducto = `Producto ${detalle.productoId}`;
+            } else if (detalle.productoId.nombre) {
+              nombreProducto = detalle.productoId.nombre;
+            } else if (detalle.productoId._id) {
+              nombreProducto = `Producto ${detalle.productoId._id}`;
+            }
+          }
+          
+          console.log('Detalle procesado:', {
+            cantidad,
+            nombreProducto,
+            fecha: venta.fechaVenta,
+            productoIdTipo: typeof detalle.productoId,
+            productoIdValor: detalle.productoId
+          });
+
+          // Sumar cantidades totales
+          groupedQuantities[key] += cantidad;
+          
+          // Agrupar productos específicos
+          if (!productosDetalle[key][nombreProducto]) {
+            productosDetalle[key][nombreProducto] = 0;
+          }
+          productosDetalle[key][nombreProducto] += cantidad;
+        });
+      } else {
+        console.warn('Venta sin detalles válidos:', {
+          id: venta._id,
+          detalles: venta.detalles,
+          keyExiste: key in groupedQuantities
+        });
+      }
+    });
     return {
       labels: timeIntervals.map(interval => interval.label),
       cantidadValues: timeIntervals.map(interval => groupedQuantities[interval.key]),

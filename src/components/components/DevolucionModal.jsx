@@ -1,6 +1,69 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'react-toastify';
 
+// Estilos para scroll personalizado
+const scrollStyles = `
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 2px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 2px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+`;
+
+// Inyectar estilos
+if (typeof document !== 'undefined' && !document.getElementById('devolucion-modal-styles')) {
+  const style = document.createElement('style');
+  style.id = 'devolucion-modal-styles';
+  style.textContent = scrollStyles;
+  document.head.appendChild(style);
+}
+
+// Iconos SVG
+const ReturnIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+  </svg>
+);
+
+const CalendarIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  </svg>
+);
+
+const UserIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  </svg>
+);
+
+const XIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+const PackageIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+  </svg>
+);
+
+const WarningIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+  </svg>
+);
+
 // Función para obtener fecha actual en formato datetime-local
 const getFechaActualLocal = () => {
   const ahora = new Date();
@@ -127,24 +190,21 @@ const DevolucionModal = ({ isVisible, onClose, venta, onProcesarDevolucion, isPr
     );
   }, [selectedItems]);
 
-  if (!isVisible || !venta) return null;
-
-  if (availableProducts.length === 0) {
+  if (!isVisible || !venta) return null;  if (availableProducts.length === 0) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-          <div className="p-6 text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
-              <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-lg shadow-2xl w-full max-w-xs border border-gray-200 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="p-3 text-center">
+            <div className="mx-auto flex items-center justify-center h-10 w-10 rounded-full bg-yellow-100 mb-2">
+              <WarningIcon />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No hay productos disponibles</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Todos los productos de esta venta ya han sido devueltos completamente.
-            </p>            <button
+            <h3 className="text-base font-semibold text-gray-900 mb-2">No hay productos disponibles</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Todos los productos ya han sido devueltos completamente.
+            </p>
+            <button
               onClick={handleClose}
-              className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              className="w-full px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors text-sm font-medium"
             >
               Cerrar
             </button>
@@ -152,103 +212,145 @@ const DevolucionModal = ({ isVisible, onClose, venta, onProcesarDevolucion, isPr
         </div>
       </div>
     );
-  }
-
-  return (
-    <div className="fixed inset-0 bg-white/30 flex items-center justify-center z-50 p-1">
-      <div className="bg-white rounded-md shadow w-full max-w-md max-h-[90vh] flex flex-col border border-gray-200">
-        {/* Header Compacto */}
-        <div className="flex items-center justify-between p-3 border-b bg-gray-50 rounded-t-md">
-          <div>
-            <h3 className="text-base font-bold text-gray-900">Procesar Devolución</h3>            <p className="text-xs text-gray-500">
-              {new Date(venta.fechaVenta || venta.fechadeVenta).toLocaleDateString()} • {venta.colaboradorId?.nombre}
-            </p>
-          </div>          <button
-            onClick={handleClose}
-            className="h-7 w-7 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-200 transition"
-            disabled={isProcesando}
-            aria-label="Cerrar"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>        {/* Content */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          {/* Campo de fecha de devolución */}
-          <div className="px-3 py-2 border-b bg-gray-50">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+  }return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-md sm:max-w-lg max-h-[90vh] flex flex-col border border-gray-200 animate-in slide-in-from-bottom-4 duration-300">        {/* Header mejorado */}
+        <div className="bg-gradient-to-r from-red-600 to-red-700 p-3 rounded-t-lg">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 p-2 rounded-lg">
+                <ReturnIcon />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white mb-1">Procesar Devolución</h3>
+                <div className="flex items-center gap-2 text-red-100 text-sm bg-white/10 px-2 py-1 rounded-md">
+                  <CalendarIcon />
+                  <span className="font-medium">{new Date(venta.fechaVenta || venta.fechadeVenta).toLocaleDateString()}</span>
+                  <span className="text-white/60">•</span>
+                  <UserIcon />
+                  <span className="font-semibold">{venta.colaboradorId?.nombre}</span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleClose}
+              className="p-2 text-white/80 hover:text-white hover:bg-white/20 rounded-lg transition-colors"
+              disabled={isProcesando}
+            >
+              <XIcon />
+            </button>
+          </div>
+        </div>{/* Content compacto */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">          {/* Campo de fecha compacto */}
+          <div className="bg-gray-50 px-3 py-2 border-b">
+            <label className="block text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1">
+              <CalendarIcon />
               Fecha de Devolución
             </label>
             <input
               type="datetime-local"
               value={fechaDevolucion}
               onChange={(e) => setFechaDevolucion(e.target.value)}
-              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-400 focus:border-red-400"
               disabled={isProcesando}
             />
           </div>
           
-          <div className="flex-1 overflow-y-auto p-2 bg-white rounded-b-md">
-            <div className="mb-2">
-              <h4 className="font-semibold text-gray-800 text-sm mb-0.5">Productos para devolución</h4>
-              <p className="text-xs text-gray-400">Seleccione y complete los datos</p>
-            </div>
-            {/* Lista responsiva y compacta */}
+          <div className="flex-1 overflow-y-auto p-3 custom-scrollbar" style={{ maxHeight: 'calc(90vh - 150px)' }}>            <div className="mb-2">
+              <h4 className="font-bold text-gray-800 text-base mb-1 flex items-center gap-1">
+                <PackageIcon />
+                Productos para Devolución
+              </h4>
+              <p className="text-sm text-gray-600">Seleccione los productos y complete la información</p>
+            </div>{/* Lista de productos compacta */}
             <div className="space-y-2">
               {availableProducts.map((detalle, index) => {
                 const selectedItem = selectedItems.find(item => item.productoId === detalle.productoId);
                 const isSelected = !!selectedItem;
                 return (
-                  <div key={detalle.productoId || index} className={`border rounded px-2 py-1 flex flex-col gap-1 ${isSelected ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white'}`}>
-                    <div className="flex items-center gap-2">
+                  <div 
+                    key={detalle.productoId || index} 
+                    className={`border rounded-md p-2 transition-all duration-200 ${
+                      isSelected 
+                        ? 'border-red-200 bg-red-50' 
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => handleItemSelection(detalle)}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
-                      />                      <div className="flex-1">
-                        <div className="font-medium text-gray-900 text-xs">{detalle.nombre}</div>
-                        <div className="text-[10px] text-gray-500">Disp: {detalle.cantidadDisponible} • S/ {detalle.precioUnitario.toFixed(2)}</div>
+                        className="w-4 h-4 text-red-600 rounded focus:ring-red-500 border-gray-300 mt-0.5"
+                      />
+                        <div className="flex-1 min-w-0">                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h5 className="font-semibold text-gray-900 text-base">{detalle.nombre}</h5>
+                            <div className="text-sm text-gray-600 mt-0.5">
+                              Disponible: {detalle.cantidadDisponible} • S/ {detalle.precioUnitario.toFixed(2)}
+                            </div>
+                          </div>
+                          
+                          {isSelected && (
+                            <div className="ml-2 flex items-center gap-2">
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                  Cantidad
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={detalle.cantidadDisponible}
+                                  value={selectedItem.cantidadDevuelta}
+                                  onChange={(e) => updateSelectedItem(detalle.productoId, 'cantidadDevuelta', parseInt(e.target.value) || 1)}
+                                  className="w-16 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-400 focus:border-red-400 text-center font-medium"
+                                />
+                              </div>
+                              <div className="text-sm font-bold text-red-700">
+                                S/ {(selectedItem.cantidadDevuelta * selectedItem.precioUnitario).toFixed(2)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {isSelected && (
+                          <div className="mt-2">
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                              Motivo de la devolución
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Ej: Producto defectuoso, cambio de opinión..."
+                              value={selectedItem.motivo}
+                              onChange={(e) => updateSelectedItem(detalle.productoId, 'motivo', e.target.value)}
+                              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-400 focus:border-red-400"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
-                    {isSelected && (
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
-                        <input
-                          type="number"
-                          min="1"
-                          max={detalle.cantidadDisponible}
-                          value={selectedItem.cantidadDevuelta}
-                          onChange={(e) => updateSelectedItem(detalle.productoId, 'cantidadDevuelta', parseInt(e.target.value) || 1)}
-                          className="w-full sm:w-14 px-1 py-0.5 border border-gray-300 rounded text-center text-xs focus:ring-1 focus:ring-blue-400"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Motivo..."
-                          value={selectedItem.motivo}
-                          onChange={(e) => updateSelectedItem(detalle.productoId, 'motivo', e.target.value)}
-                          className="w-full px-1 py-0.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-400"
-                        />
-                        <div className="text-xs text-blue-700 font-bold text-right w-full sm:w-auto">
-                          S/ {(selectedItem.cantidadDevuelta * selectedItem.precioUnitario).toFixed(2)}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })}
+            </div>          </div>
+            {/* Footer compacto */}
+          <div className="border-t border-gray-200 p-2">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-base font-bold text-red-600">
+                Total a Devolver: S/ {calculateTotal.toFixed(2)}
+              </div>
+              {selectedItems.length > 0 && (
+                <div className="text-sm text-gray-600">
+                  {selectedItems.length} producto{selectedItems.length !== 1 ? 's' : ''}
+                </div>
+              )}
             </div>
-          </div>
-          {/* Footer compacto */}
-          <div className="border-t bg-gray-50 rounded-b-md p-2 flex flex-col sm:flex-row gap-1 sm:justify-between items-center">
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-700">Total:</span>
-              <span className="text-base font-bold text-blue-700">S/ {calculateTotal.toFixed(2)}</span>
-            </div>
-            <div className="flex gap-1 w-full sm:w-auto">              <button
+            
+            <div className="flex gap-2">
+              <button
                 type="button"
                 onClick={handleClose}
-                className="flex-1 sm:flex-none px-2 py-1 text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-100 text-xs font-medium"
+                className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm font-medium"
                 disabled={isProcesando}
               >
                 Cancelar
@@ -256,9 +358,19 @@ const DevolucionModal = ({ isVisible, onClose, venta, onProcesarDevolucion, isPr
               <button
                 type="submit"
                 disabled={isProcesando || selectedItems.length === 0}
-                className="flex-1 sm:flex-none px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 text-xs font-medium"
+                className="flex-1 px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-1 text-sm font-semibold"
               >
-                {isProcesando ? 'Procesando...' : 'Procesar'}
+                {isProcesando ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <ReturnIcon />
+                    Procesar Devolución
+                  </>
+                )}
               </button>
             </div>
           </div>

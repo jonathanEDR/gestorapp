@@ -324,30 +324,32 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
         devolucionesValues: [],
         ventasNetasValues: []
       };
-    }
-
-    const timeIntervals = generateTimeIntervals(selectedRange);
+    }    const timeIntervals = generateTimeIntervals(selectedRange);
     const groupedSales = {};
     const groupedDevoluciones = {};
     const groupedVentasNetas = {};
+    const groupedVentasBrutas = {}; // Nueva variable para ventas brutas
 
     // Inicializar acumuladores a cero
     timeIntervals.forEach(interval => {
       groupedSales[interval.key] = 0;
       groupedDevoluciones[interval.key] = 0;
       groupedVentasNetas[interval.key] = 0;
-    });
+      groupedVentasBrutas[interval.key] = 0; // Inicializar ventas brutas
+    });    // Agrupar ventas - Validar que filteredData existe y es un array
+    if (filteredData && Array.isArray(filteredData)) {
+      filteredData.forEach((venta) => {
+        const montoTotal = parseFloat(venta.montoTotal) || 0;
+        const date = new Date(venta.fechaVenta);
+        const key = getGroupingFormat(date, selectedRange);
 
-    // Agrupar ventas
-    filteredData.forEach((venta) => {
-      const montoTotal = parseFloat(venta.montoTotal) || 0;
-      const date = new Date(venta.fechaVenta);
-      const key = getGroupingFormat(date, selectedRange);
-
-      if (key in groupedSales) {
-        groupedSales[key] += montoTotal;
-      }
-    });    // Agrupar devoluciones si existen
+        if (key in groupedSales) {
+          groupedSales[key] += montoTotal;
+        }
+      });
+    } else {
+      console.warn('🔍 DEBUG: filteredData no es un array válido:', filteredData);
+    }// Agrupar devoluciones si existen
     if (filteredDevoluciones && Array.isArray(filteredDevoluciones)) {
       console.log('🔍 DEBUG: Devoluciones filtradas recibidas en gráfico:', filteredDevoluciones); // Debug log      
       filteredDevoluciones.forEach((devolucion) => {
@@ -374,24 +376,25 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
       });
     } else {
       console.log('🔍 DEBUG: No hay devoluciones o no es un array:', devoluciones); // Debug log
-    }    // Calcular ventas netas
+    }    // Calcular ventas netas (las ventas actuales ya tienen devoluciones descontadas)
     timeIntervals.forEach(interval => {
-      groupedVentasNetas[interval.key] = groupedSales[interval.key] - groupedDevoluciones[interval.key];
+      groupedVentasNetas[interval.key] = groupedSales[interval.key]; // Las ventas actuales son netas
     });
 
-    // Debug final de datos
+    // Calcular ventas brutas (ventas netas + devoluciones)
+    timeIntervals.forEach(interval => {
+      groupedVentasBrutas[interval.key] = groupedSales[interval.key] + groupedDevoluciones[interval.key];
+    });    // Debug final de datos
     console.log('🔍 DEBUG: Datos finales del gráfico:', {
       labels: timeIntervals.map(interval => interval.label),
-      ventas: timeIntervals.map(interval => groupedSales[interval.key]),
+      ventasBrutas: timeIntervals.map(interval => groupedVentasBrutas[interval.key]),
       devoluciones: timeIntervals.map(interval => groupedDevoluciones[interval.key]),
       ventasNetas: timeIntervals.map(interval => groupedVentasNetas[interval.key])
-    });
-
-    return {
+    });return {
       labels: timeIntervals.map(interval => interval.label),
-      ventasValues: timeIntervals.map(interval => groupedSales[interval.key]),
+      ventasBrutasValues: timeIntervals.map(interval => groupedVentasBrutas[interval.key]), // Brutas = Netas + Devoluciones
       devolucionesValues: timeIntervals.map(interval => groupedDevoluciones[interval.key]),
-      ventasNetasValues: timeIntervals.map(interval => groupedVentasNetas[interval.key])
+      ventasNetasValues: timeIntervals.map(interval => groupedVentasNetas[interval.key]) // Netas = Ventas actuales
     };
   }, [filteredData, filteredDevoluciones, selectedRange]);
 
@@ -399,10 +402,9 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
   // Datos del gráfico
   const chartData = {
     labels: groupedData.labels,
-    datasets: [
-      {
+    datasets: [      {
         label: 'Ventas Brutas (S/)',
-        data: groupedData.ventasValues,
+        data: groupedData.ventasBrutasValues, // Ahora usa las ventas brutas calculadas
         borderColor: 'rgba(75, 192, 192, 1)',
         backgroundColor: 'rgba(75, 192, 192, 0.1)',
         fill: true,
@@ -512,9 +514,10 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
         <div className="bg-emerald-50 p-4 rounded-lg">
           <h4 className="text-emerald-700 font-semibold text-sm">
             Ventas Brutas - {getTimeRangeTitle(selectedRange)}
-          </h4>
-          <p className="text-xl font-bold">
-            S/ {groupedData.ventasValues.reduce((a, b) => a + b, 0).toFixed(2)}
+          </h4>          <p className="text-xl font-bold">
+            S/ {(groupedData?.ventasBrutasValues && Array.isArray(groupedData.ventasBrutasValues)) 
+              ? groupedData.ventasBrutasValues.reduce((a, b) => a + b, 0).toFixed(2) 
+              : '0.00'}
           </p>
           <p className="text-xs text-emerald-600 mt-1">
             {selectedRange === 'day' ? 'Hoy' : 
@@ -527,34 +530,61 @@ const SalesOverTimeChart = ({ ventas, devoluciones, selectedRange }) => {
         <div className="bg-blue-50 p-4 rounded-lg">
           <h4 className="text-blue-700 font-semibold text-sm">
             Ventas Netas - {getTimeRangeTitle(selectedRange)}
-          </h4>
-          <p className="text-xl font-bold">
-            S/ {groupedData.ventasNetasValues.reduce((a, b) => a + b, 0).toFixed(2)}
-          </p>
-          <p className="text-xs text-blue-600 mt-1">
-            {((groupedData.ventasNetasValues.reduce((a, b) => a + b, 0) / groupedData.ventasValues.reduce((a, b) => a + b, 0)) * 100).toFixed(1)}% de ventas brutas
+          </h4>          <p className="text-xl font-bold">
+            S/ {(groupedData?.ventasNetasValues && Array.isArray(groupedData.ventasNetasValues)) 
+              ? groupedData.ventasNetasValues.reduce((a, b) => a + b, 0).toFixed(2) 
+              : '0.00'}
+          </p>          <p className="text-xs text-blue-600 mt-1">
+            {(groupedData?.ventasNetasValues && groupedData?.ventasBrutasValues && 
+              Array.isArray(groupedData.ventasNetasValues) && Array.isArray(groupedData.ventasBrutasValues)) 
+              ? ((groupedData.ventasNetasValues.reduce((a, b) => a + b, 0) / groupedData.ventasBrutasValues.reduce((a, b) => a + b, 0)) * 100).toFixed(1) + '% de ventas brutas'
+              : '0.0% de ventas brutas'}
           </p>
         </div>
 
         <div className="bg-red-50 p-4 rounded-lg">
           <h4 className="text-red-700 font-semibold text-sm">
             Devoluciones - {getTimeRangeTitle(selectedRange)}
-          </h4>
-          <p className="text-xl font-bold">
-            S/ {groupedData.devolucionesValues.reduce((a, b) => a + b, 0).toFixed(2)}
-          </p>
-          <p className="text-xs text-red-600 mt-1">
-            {((groupedData.devolucionesValues.reduce((a, b) => a + b, 0) / groupedData.ventasValues.reduce((a, b) => a + b, 0)) * 100).toFixed(1)}% de ventas brutas
+          </h4>          <p className="text-xl font-bold">
+            S/ {(groupedData?.devolucionesValues && Array.isArray(groupedData.devolucionesValues)) 
+              ? groupedData.devolucionesValues.reduce((a, b) => a + b, 0).toFixed(2) 
+              : '0.00'}
+          </p>          <p className="text-xs text-red-600 mt-1">
+            {(groupedData?.devolucionesValues && groupedData?.ventasBrutasValues && 
+              Array.isArray(groupedData.devolucionesValues) && Array.isArray(groupedData.ventasBrutasValues)) 
+              ? ((groupedData.devolucionesValues.reduce((a, b) => a + b, 0) / groupedData.ventasBrutasValues.reduce((a, b) => a + b, 0)) * 100).toFixed(1) + '% de ventas brutas'
+              : '0.0% de ventas brutas'}
           </p>
         </div>        <div className="bg-indigo-50 p-4 rounded-lg">
           <h4 className="text-indigo-700 font-semibold text-sm">
             Cantidad Vendida - {getTimeRangeTitle(selectedRange)}
-          </h4>
-          <p className="text-xl font-bold">
-            {filteredData.reduce((total, venta) => total + (parseInt(venta.cantidad) || 0), 0)} unidades
+          </h4>          <p className="text-xl font-bold">
+            {(filteredData && Array.isArray(filteredData)) 
+              ? (() => {
+                  console.log('🔍 DEBUG: Calculando cantidad vendida. Muestra de ventas:', filteredData.slice(0, 2));
+                  
+                  const totalCantidad = filteredData.reduce((total, venta) => {
+                    // Si la venta tiene detalles, sumar las cantidades de cada detalle
+                    if (venta.detalles && Array.isArray(venta.detalles)) {
+                      const cantidadVenta = venta.detalles.reduce((subtotal, detalle) => {
+                        return subtotal + (parseInt(detalle.cantidad) || 0);
+                      }, 0);
+                      console.log(`🔍 DEBUG: Venta ${venta._id} con detalles: ${cantidadVenta} unidades`);
+                      return total + cantidadVenta;
+                    }
+                    // Si no tiene detalles, usar el campo cantidad directo (fallback)
+                    const cantidadDirecta = parseInt(venta.cantidad) || 0;
+                    console.log(`🔍 DEBUG: Venta ${venta._id} sin detalles: ${cantidadDirecta} unidades`);
+                    return total + cantidadDirecta;
+                  }, 0);
+                  
+                  console.log('🔍 DEBUG: Total cantidad vendida calculada:', totalCantidad);
+                  return totalCantidad;
+                })()
+              : 0} unidades
           </p>
           <p className="text-xs text-indigo-600 mt-1">
-            En {filteredData.length} transacciones
+            En {(filteredData && Array.isArray(filteredData)) ? filteredData.length : 0} transacciones
           </p>
         </div>
       </div>
