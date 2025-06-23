@@ -1,11 +1,38 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL;
+// Configuración de la URL base según el entorno
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
 const api = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
-  withCredentials: true   // Permite enviar cookies junto con cada petición
+  withCredentials: true,   // Permite enviar cookies junto con cada petición
+  timeout: 10000, // Timeout de 10 segundos
 });
+
+// Interceptor para manejar errores globalmente
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error);
+    
+    // Manejar errores específicos
+    if (error.code === 'NETWORK_ERROR') {
+      console.error('Error de conexión de red');
+    } else if (error.response?.status === 401) {
+      console.error('No autorizado - redirigir al login');
+    } else if (error.response?.status >= 500) {
+      console.error('Error del servidor');
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// Log de configuración (solo en desarrollo)
+if (process.env.NODE_ENV === 'development') {
+  console.log('🔧 API configurada:', API_URL);
+}
 
 // Obtener todos los productos (inventario)
 export const getProductos = async () => {

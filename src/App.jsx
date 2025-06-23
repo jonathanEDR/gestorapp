@@ -1,21 +1,31 @@
-import React, { useEffect } from 'react';  
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';  // Importar Clerk
-import { useNavigate } from 'react-router-dom';  // Importar hook para redirigir
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
+import Dashboard from './components/Dashboard';
 import Login from './components/Login';
-import Dashboard from './components/Dashboard'; 
 import SignUp from './components/Signup';
-import Home from './components/Home';
+import './App.css';
 
 function App() {
-
   return (
+    <div className="App">
       <Routes>
-        <Route index path="/" element={<Home />} />
+        {/* Rutas públicas */}
         <Route path="/signup" element={<SignUp />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        
+        {/* Rutas protegidas - Dashboard actúa como layout */}
+        <Route path="/*" element={
+          <SignedIn>
+            <Dashboard />
+          </SignedIn>
+        } />
       </Routes>
+      
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+    </div>
   );
 }
 

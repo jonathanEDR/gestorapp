@@ -1,10 +1,12 @@
-import React, { useEffect, useState,useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@clerk/clerk-react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import ProductStatsChart from './graphics/ProductStatsChart';
 
 function ProductoList() {
   const { getToken } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [productoData, setProductoData] = useState({
     nombre: '',
     precioCompra: 0,
@@ -18,55 +20,79 @@ function ProductoList() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [productosTerminados, setProductosTerminados] = useState([]);
-  const productosPorPagina = 24;
-  const productosAmostrar = productos.slice(0, productosPorPagina);
-
   const [paginaTerminados, setPaginaTerminados] = useState(1);
-const productosPorPaginaTerminados = 10;
-const productosTerminadosPorPagina = productosTerminados.slice(
-  (paginaTerminados - 1) * productosPorPaginaTerminados,
-  paginaTerminados * productosPorPaginaTerminados
-);
-const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Manejar parámetros de URL para filtros
+  const currentPage = parseInt(searchParams.get('page')) || 1;
+  const searchTerm = searchParams.get('search') || '';
 
-  // Envuelve fetchProductos en useCallback
-const fetchProductos = useCallback(async () => {
-  try {
-    setIsLoading(true);
-    const token = await getToken();
-    if (!token) {
-      setError('No estás autorizado');
-      return;
-    }
-
-    const response = await api.get('/productos', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    const productosActivos = [];
-    const productosFinalizados = [];
-
-    response.data.forEach((producto) => {
-      if (producto.cantidadRestante === 0) {
-        productosFinalizados.push({
-          ...producto,
-          fechaAgotamiento: new Date().toLocaleString(),
-        });
+  // Función para actualizar URL con parámetros
+  const updateUrlParams = (params) => {
+    const newParams = new URLSearchParams(searchParams);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) {
+        newParams.set(key, value);
       } else {
-        productosActivos.push(producto);
+        newParams.delete(key);
       }
     });
+    setSearchParams(newParams);
+  };
 
-    setProductos(productosActivos);
-    setProductosTerminados(productosFinalizados);
-  } catch (error) {
-    console.error('Error al obtener productos:', error);
-    setError('Error al cargar productos');
-  } finally {
-    setIsLoading(false);
-  }
-}, [getToken]);
+  // Filtrar productos por búsqueda
+  const filteredProductos = productos.filter(producto =>
+    producto.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const productosPorPagina = 24;
+  const startIndex = (currentPage - 1) * productosPorPagina;
+  const productosAmostrar = filteredProductos.slice(startIndex, startIndex + productosPorPagina);
+
+  const productosPorPaginaTerminados = 10;
+  const productosTerminadosPorPagina = productosTerminados.slice(
+    (paginaTerminados - 1) * productosPorPaginaTerminados,
+    paginaTerminados * productosPorPaginaTerminados
+  );
+
+  // Envuelve fetchProductos en useCallback
+  const fetchProductos = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const token = await getToken();
+      if (!token) {
+        setError('No estás autorizado');
+        return;
+      }
+
+      const response = await api.get('/productos', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const productosActivos = [];
+      const productosFinalizados = [];
+
+      response.data.forEach((producto) => {
+        if (producto.cantidadRestante === 0) {
+          productosFinalizados.push({
+            ...producto,
+            fechaAgotamiento: new Date().toLocaleString(),
+          });
+        } else {
+          productosActivos.push(producto);
+        }
+      });
+
+      setProductos(productosActivos);
+      setProductosTerminados(productosFinalizados);
+    } catch (error) {
+      console.error('Error al obtener productos:', error);
+      setError('Error al cargar productos');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getToken]);
+
   // useEffect para llamar a fetchProductos
   useEffect(() => {
     fetchProductos();
@@ -99,14 +125,13 @@ const fetchProductos = useCallback(async () => {
   };
 
   const handleAddOrEditProducto = async () => {
-  if (!productoData.nombre || productoData.precio <= 0 || productoData.precioCompra <= 0 || productoData.cantidad < 0) {
+    if (!productoData.nombre || productoData.precio <= 0 || productoData.precioCompra <= 0 || productoData.cantidad < 0) {
       setError('Por favor, completa todos los campos correctamente.');
       return;
     }
   
     try {
-          setIsSubmitting(true);
-
+      setIsSubmitting(true);
       setError(null);
       const token = await getToken();
       if (!token) {
@@ -149,7 +174,7 @@ const fetchProductos = useCallback(async () => {
       console.error('Error al gestionar producto:', error);
       setError('Error: ' + (error.response?.data?.message || error.message));
      } finally {
-    setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
   
@@ -189,10 +214,23 @@ const fetchProductos = useCallback(async () => {
 
   return (
     <div className="list p-6">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Inventario de Productos</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold text-gray-800">Inventario de Productos</h2>
+        
+        {/* Barra de búsqueda */}
+        <div className="flex space-x-4">
+          <input
+            type="text"
+            placeholder="Buscar productos..."
+            value={searchTerm}
+            onChange={(e) => updateUrlParams({ search: e.target.value, page: 1 })}
+            className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+      </div>
 
-            {/* Mostrar errores */}
-            {error && (
+      {/* Mostrar errores */}
+      {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
         </div>
@@ -300,105 +338,130 @@ const fetchProductos = useCallback(async () => {
         </div>
       )}
 
-        {/* Tarjetas de Productos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 mt-6">
-          {productosAmostrar.map((producto) => (
-            <div 
-              key={producto._id} 
-              className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden border border-gray-100"
-            >
-              {/* Header de la tarjeta */}
-              <div className="p-4 border-b border-gray-50">
-                <h3 className="font-medium text-gray-800 truncate">{producto.nombre}</h3>
-                <p className="text-2xl font-bold text-blue-600 mt-1">
-                  S/ {producto.precio.toFixed(2)}
-                </p>
+      {/* Tarjetas de Productos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 mt-6">
+        {productosAmostrar.map((producto) => (
+          <div 
+            key={producto._id} 
+            className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden border border-gray-100"
+          >
+            {/* Header de la tarjeta */}
+            <div className="p-4 border-b border-gray-50">
+              <h3 className="font-medium text-gray-800 truncate">{producto.nombre}</h3>
+              <p className="text-2xl font-bold text-blue-600 mt-1">
+                S/ {producto.precio.toFixed(2)}
+              </p>
+            </div>
+
+            {/* Contenido de la tarjeta */}
+            <div className="p-4 space-y-3">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">Stock Inicial:</span>
+                <span className="font-medium text-gray-800">{producto.cantidad}</span>
               </div>
 
-              {/* Contenido de la tarjeta */}
-              <div className="p-4 space-y-3">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-500">Stock Inicial:</span>
-                  <span className="font-medium text-gray-800">{producto.cantidad}</span>
-                </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">Vendidos:</span>
+                <span className="font-medium text-gray-800">{producto.cantidadVendida}</span>
+              </div>
 
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-500">Vendidos:</span>
-                  <span className="font-medium text-gray-800">{producto.cantidadVendida}</span>
-                </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">Disponible:</span>
+                <span className={`font-medium ${
+                  (producto.cantidad - producto.cantidadVendida) <= 5 
+                    ? 'text-red-600' 
+                    : 'text-green-600'
+                }`}>
+                  {producto.cantidad - producto.cantidadVendida}
+                </span>
+              </div>
 
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-500">Disponible:</span>
-                  <span className={`font-medium ${
+              {/* Progress bar */}
+              <div className="w-full bg-gray-100 rounded-full h-2 mt-2">
+                <div 
+                  className={`h-2 rounded-full ${
                     (producto.cantidad - producto.cantidadVendida) <= 5 
-                      ? 'text-red-600' 
-                      : 'text-green-600'
-                  }`}>
-                    {producto.cantidad - producto.cantidadVendida}
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full bg-gray-100 rounded-full h-2 mt-2">
-                  <div 
-                    className={`h-2 rounded-full ${
-                      (producto.cantidad - producto.cantidadVendida) <= 5 
-                        ? 'bg-red-500' 
-                        : 'bg-green-500'
-                    }`}
-                    style={{
-                      width: `${(producto.cantidadVendida / producto.cantidad) * 100}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Footer de la tarjeta */}
-              <div className="p-4 bg-gray-50">
-                <button
-                  onClick={() => handleEditProducto(producto)}
-                  className="w-full bg-white text-blue-600 px-4 py-2 rounded-lg 
-                            border border-blue-600 hover:bg-blue-50 
-                            transition-colors duration-300 flex items-center justify-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                  Editar
-                </button>
+                      ? 'bg-red-500' 
+                      : 'bg-green-500'
+                  }`}
+                  style={{
+                    width: `${(producto.cantidadVendida / producto.cantidad) * 100}%`
+                  }}
+                />
               </div>
             </div>
-          ))}
-        </div>
 
-        {/* Mostrar productos terminados */}
-        <h3 className="text-2xl font-semibold text-gray-800 mt-6">Productos Terminados</h3>
-        <div className="overflow-x-auto mt-4">
-          <table className="min-w-full table-auto border-collapse">
-            <thead>
-              <tr>
-                <th className="px-6 py-2 border-b text-left">Nombre</th>
-                <th className="px-6 py-2 border-b text-left">Cantidad</th>
-                <th className="px-6 py-2 border-b text-left">Cantidad Vendida</th>
-                <th className="px-6 py-2 border-b text-left">Costo</th>
-                <th className="px-6 py-2 border-b text-left">Precio</th>
-                <th className="px-6 py-2 border-b text-left">Fecha de Agotamiento</th>
-              </tr>
-            </thead>
-            <tbody>
-              {productosTerminadosPorPagina.map((producto) => (
-                <tr key={producto._id} className="hover:bg-gray-100">
-                  <td className="px-6 py-3 border-b">{producto.nombre}</td>
-                  <td className="px-6 py-3 border-b">{producto.cantidad}</td>
-                  <td className="px-6 py-3 border-b">{producto.cantidadVendida}</td>
-                  <td className="px-6 py-3 border-b">S/ {producto.precioCompra}</td>
-                  <td className="px-6 py-3 border-b">S/ {producto.precio}</td>
-                  <td className="px-6 py-3 border-b">{producto.fechaAgotamiento}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            {/* Footer de la tarjeta */}
+            <div className="p-4 bg-gray-50">
+              <button
+                onClick={() => handleEditProducto(producto)}
+                className="w-full bg-white text-blue-600 px-4 py-2 rounded-lg 
+                          border border-blue-600 hover:bg-blue-50 
+                          transition-colors duration-300 flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Editar
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Paginación mejorada */}
+      {filteredProductos.length > productosPorPagina && (
+        <div className="flex justify-center items-center space-x-2 mt-8">
+          <button
+            onClick={() => updateUrlParams({ page: Math.max(1, currentPage - 1) })}
+            disabled={currentPage === 1}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 disabled:opacity-50"
+          >
+            Anterior
+          </button>
+          
+          <span className="px-4 py-2">
+            Página {currentPage} de {Math.ceil(filteredProductos.length / productosPorPagina)}
+          </span>
+          
+          <button
+            onClick={() => updateUrlParams({ page: currentPage + 1 })}
+            disabled={currentPage >= Math.ceil(filteredProductos.length / productosPorPagina)}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 disabled:opacity-50"
+          >
+            Siguiente
+          </button>
         </div>
+      )}
+
+      {/* Mostrar productos terminados */}
+      <h3 className="text-2xl font-semibold text-gray-800 mt-6">Productos Terminados</h3>
+      <div className="overflow-x-auto mt-4">
+        <table className="min-w-full table-auto border-collapse">
+          <thead>
+            <tr>
+              <th className="px-6 py-2 border-b text-left">Nombre</th>
+              <th className="px-6 py-2 border-b text-left">Cantidad</th>
+              <th className="px-6 py-2 border-b text-left">Cantidad Vendida</th>
+              <th className="px-6 py-2 border-b text-left">Costo</th>
+              <th className="px-6 py-2 border-b text-left">Precio</th>
+              <th className="px-6 py-2 border-b text-left">Fecha de Agotamiento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productosTerminadosPorPagina.map((producto) => (
+              <tr key={producto._id} className="hover:bg-gray-100">
+                <td className="px-6 py-3 border-b">{producto.nombre}</td>
+                <td className="px-6 py-3 border-b">{producto.cantidad}</td>
+                <td className="px-6 py-3 border-b">{producto.cantidadVendida}</td>
+                <td className="px-6 py-3 border-b">S/ {producto.precioCompra}</td>
+                <td className="px-6 py-3 border-b">S/ {producto.precio}</td>
+                <td className="px-6 py-3 border-b">{producto.fechaAgotamiento}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* Paginación de productos terminados */}
       <div className="flex justify-between mt-4">

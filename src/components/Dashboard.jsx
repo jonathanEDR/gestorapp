@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ProductoList from './ProductoList';
 import VentaList from './VentaList';
 import CobroList from './CobroList';
@@ -7,19 +8,29 @@ import GestionPersonal from './GestionPersonal';
 import Reportes from './Reportes';
 import GastoList from './GastoList';  
 import LogoutButton from './LogouButton';
+import Breadcrumbs from './Breadcrumbs';
 import { useUser } from '@clerk/clerk-react';
 
 function Dashboard() {
   const { user } = useUser();
-  const [activeSection, setActiveSection] = useState('reportes');
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isSidebarVisible, setSidebarVisible] = useState(true);
 
-  const handleSectionChange = (section) => {
-    setActiveSection(section);
-  };
+  // Debug logs
+  console.log('Dashboard renderizado');
+  console.log('Usuario:', user);
+  console.log('Ubicación actual:', location.pathname);
 
+  // Función para alternar el sidebar
   const toggleSidebar = () => {
     setSidebarVisible(!isSidebarVisible);
+  };
+  // Obtener la sección activa desde la URL (sin /dashboard)
+  const activeSection = location.pathname.split('/')[1] || 'reportes';
+
+  const handleSectionChange = (section) => {
+    navigate(`/${section}`);
   };
 
   const firstName = user ? user.firstName : 'Usuario';
@@ -68,9 +79,8 @@ function Dashboard() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.196-2.121M17 20H7m10 0v-2c0-5-4-8-8-8s-8 3-8 8v2m12-8a4 4 0 11-8 0 4 4 0 018 0z" />
         </svg>
       )
-    },
-    {
-      id: 'gestionPersonal',
+    },    {
+      id: 'gestion-personal',
       title: 'Gestión Personal',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,35 +203,28 @@ function Dashboard() {
           </div>
         </aside>
 
-        {/* Main Content Mejorado */}
+        {/* Main Content con Rutas */}
         <main 
           className={`flex-1 transition-all duration-300 ease-in-out ${
             isSidebarVisible ? 'ml-72' : 'ml-0'
           }`}
-        >
-          <div className="p-6">
-            {/* Breadcrumb */}
-            <div className="mb-6">
-              <div className="flex items-center space-x-2 text-sm text-slate-600">
-                <span>Prime</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="text-slate-900 font-medium">
-                  {menuItems.find(item => item.id === activeSection)?.title}
-                </span>
-              </div>
-            </div>
+        >          <div className="p-6">
+            {/* Breadcrumb mejorado */}
+            <Breadcrumbs />
 
-            {/* Content Card */}
+            {/* Content Card con Routes */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-              <div className="p-8 min-h-[calc(100vh-16rem)]">                {activeSection === 'productos' && <ProductoList />}
-                {activeSection === 'ventas' && <VentaList />}
-                {activeSection === 'cobros' && <CobroList />}
-                {activeSection === 'colaboradores' && <ColaboradorList />}
-                {activeSection === 'gestionPersonal' && <GestionPersonal />}
-                {activeSection === 'reportes' && <Reportes />}
-                {activeSection === 'gastos' && <GastoList />}
+              <div className="p-8 min-h-[calc(100vh-16rem)]">                <Routes>
+                  <Route path="productos" element={<ProductoList />} />
+                  <Route path="ventas" element={<VentaList />} />
+                  <Route path="cobros" element={<CobroList />} />
+                  <Route path="colaboradores" element={<ColaboradorList />} />
+                  <Route path="gestion-personal" element={<GestionPersonal />} />
+                  <Route path="reportes" element={<Reportes />} />
+                  <Route path="gastos" element={<GastoList />} />
+                  <Route path="/" element={<Reportes />} />
+                  <Route path="" element={<Reportes />} />
+                </Routes>
               </div>
             </div>
           </div>
