@@ -204,10 +204,9 @@ const GastosOverTimeChart = ({ gastos, selectedRange }) => {
     }
 
     return intervals;
-  };
-
-    const groupedData = useMemo(() => {
-    if (!gastos || gastos.length === 0) {
+  };    const groupedData = useMemo(() => {
+    // Validación temprana
+    if (!gastos || gastos.length === 0 || !filteredData || filteredData.length === 0) {
       return {
         labels: [],
         produccion: [],
@@ -215,8 +214,7 @@ const GastosOverTimeChart = ({ gastos, selectedRange }) => {
         ventas: [],
         administrativo: []
       };
-    }
-  const timeIntervals = generateTimeIntervals(selectedRange);
+    }const timeIntervals = generateTimeIntervals(selectedRange);
     const groupedGastos = {
       Producción: {},
       Financiero: {},
@@ -228,8 +226,7 @@ const GastosOverTimeChart = ({ gastos, selectedRange }) => {
     Object.keys(groupedGastos).forEach(categoria => {
       timeIntervals.forEach(interval => {
         groupedGastos[categoria][interval.key] = 0;
-      });
-    });
+      });    });
 
     // Agrupar gastos por categoría
     filteredData.forEach((gasto) => {
@@ -237,8 +234,27 @@ const GastosOverTimeChart = ({ gastos, selectedRange }) => {
       const date = new Date(gasto.fechaGasto);
       const key = getGroupingFormat(date, selectedRange);
 
-      if (key in groupedGastos[gasto.gasto]) {
-        groupedGastos[gasto.gasto][key] += montoTotal;
+      // Mapear la categoría del gasto a las categorías del gráfico
+      let categoriaGrafico = 'Administración'; // Fallback por defecto
+      
+      // Mapear según el valor de gasto.gasto
+      const gastoCategoria = (gasto.gasto || '').toLowerCase().trim();
+      
+      if (gastoCategoria.includes('producción') || gastoCategoria.includes('produccion')) {
+        categoriaGrafico = 'Producción';
+      } else if (gastoCategoria.includes('finanzas') || gastoCategoria.includes('financiero')) {
+        categoriaGrafico = 'Financiero';
+      } else if (gastoCategoria.includes('ventas')) {
+        categoriaGrafico = 'Ventas';
+      } else if (gastoCategoria.includes('administración') || gastoCategoria.includes('administracion') || gastoCategoria.includes('administrativo')) {
+        categoriaGrafico = 'Administración';
+      }
+
+      // Verificar que tanto la categoría como la clave existan
+      if (groupedGastos[categoriaGrafico] && groupedGastos[categoriaGrafico].hasOwnProperty(key)) {
+        groupedGastos[categoriaGrafico][key] += montoTotal;
+      } else {
+        console.warn(`⚠️ Categoría o clave no encontrada: categoria=${categoriaGrafico}, key=${key}, original=${gasto.gasto}`);
       }
     });
 

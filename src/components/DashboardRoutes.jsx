@@ -3,6 +3,7 @@ import React, { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 // Lazy loading de componentes
+const Caja = lazy(() => import('./Caja'));
 const ProductoList = lazy(() => import('./ProductoList'));
 const VentaList = lazy(() => import('./VentaList'));
 const CobroList = lazy(() => import('./CobroList'));
@@ -10,6 +11,7 @@ const ColaboradorList = lazy(() => import('./ColaboradorList'));
 const GestionPersonal = lazy(() => import('./GestionPersonal'));
 const Reportes = lazy(() => import('./Reportes'));
 const GastoList = lazy(() => import('./GastoList'));
+const PagosRealizados = lazy(() => import('./PagosRealizados'));
 
 // Componente de loading
 const LoadingSpinner = () => (
@@ -60,16 +62,17 @@ class ErrorBoundary extends React.Component {
 // Rutas con lazy loading
 export const DashboardRoutes = () => (
   <ErrorBoundary>
-    <Suspense fallback={<LoadingSpinner />}>
-      <Routes>
+    <Suspense fallback={<LoadingSpinner />}>      <Routes>
+        <Route path="caja" element={<Caja />} />
         <Route path="productos" element={<ProductoList />} />
         <Route path="ventas" element={<VentaList />} />
         <Route path="cobros" element={<CobroList />} />
         <Route path="colaboradores" element={<ColaboradorList />} />
         <Route path="gestion-personal" element={<GestionPersonal />} />
+        <Route path="pagos-realizados" element={<PagosRealizados />} />
         <Route path="reportes" element={<Reportes />} />
         <Route path="gastos" element={<GastoList />} />
-        <Route path="" element={<Reportes />} />
+        <Route path="" element={<Caja />} />
       </Routes>
     </Suspense>
   </ErrorBoundary>

@@ -98,16 +98,31 @@ function PagosRealizados() {
     } catch (err) {
       console.error('Error al cargar registros:', err);
       setRegistros([]);
-    }
-  }, [getToken]);
+    }  }, [getToken]);
+
   // Calcular monto pendiente por colaborador
   const calcularMontoPendiente = (colaboradorId) => {
-    const registrosColaborador = registros.filter(r => r.colaboradorId?._id === colaboradorId);
+    if (!colaboradorId) return 0;
+    
+    const registrosColaborador = registros.filter(r => {
+      if (!r.colaboradorId) return false;
+      
+      // Manejar si colaboradorId está poblado o no en los registros
+      const registroColabId = typeof r.colaboradorId === 'object' 
+        ? r.colaboradorId?._id 
+        : r.colaboradorId;
+      
+      return registroColabId?.toString() === colaboradorId?.toString();
+    });
+    
     const pagosColaborador = pagos.filter(p => {
+      if (!p.colaboradorId) return false;
+      
       // Manejar si colaboradorId está poblado o no
       const pagoColabId = typeof p.colaboradorId === 'object' 
-        ? p.colaboradorId._id 
+        ? p.colaboradorId?._id 
         : p.colaboradorId;
+      
       return pagoColabId?.toString() === colaboradorId?.toString();
     });
 
@@ -248,15 +263,15 @@ function PagosRealizados() {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
         </div>
-      )}
-
-      {/* Resumen de colaboradores con saldos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">        {colaboradores.map(colaborador => {
-          const montoPendiente = calcularMontoPendiente(colaborador._id);
-          const ultimoPago = pagos
+      )}      {/* Resumen de colaboradores con saldos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+        {colaboradores.filter(colaborador => colaborador && colaborador._id).map(colaborador => {
+          const montoPendiente = calcularMontoPendiente(colaborador._id);          const ultimoPago = pagos
             .filter(p => {
+              if (!p.colaboradorId || !colaborador._id) return false;
+              
               const pagoColabId = typeof p.colaboradorId === 'object' 
-                ? p.colaboradorId._id 
+                ? p.colaboradorId?._id 
                 : p.colaboradorId;
               return pagoColabId?.toString() === colaborador._id?.toString();
             })
@@ -364,28 +379,31 @@ function PagosRealizados() {
               
               <tbody className="bg-white divide-y divide-gray-200">
                 {pagos
-                  .sort((a, b) => new Date(b.fechaPago) - new Date(a.fechaPago))
-                  .map((pago, index) => {
+                  .sort((a, b) => new Date(b.fechaPago) - new Date(a.fechaPago))                  .map((pago, index) => {
                     // Manejar si colaboradorId está poblado o no
                     let colaboradorNombre = 'Colaborador no encontrado';
                     
-                    if (typeof pago.colaboradorId === 'object' && pago.colaboradorId?.nombre) {
-                      // Si está poblado desde el backend
-                      colaboradorNombre = pago.colaboradorId.nombre;
-                    } else {
-                      // Si no está poblado, buscar en la lista local
-                      const colaborador = colaboradores.find(c => 
-                        c._id.toString() === (pago.colaboradorId?.toString() || pago.colaboradorId)
-                      );
-                      colaboradorNombre = colaborador?.nombre || 'Colaborador no encontrado';
-                    }
+                    if (pago.colaboradorId) {
+                      if (typeof pago.colaboradorId === 'object' && pago.colaboradorId?.nombre) {
+                        // Si está poblado desde el backend
+                        colaboradorNombre = pago.colaboradorId.nombre;
+                      } else {
+                        // Si no está poblado, buscar en la lista local
+                        const colaborador = colaboradores.find(c => 
+                          c && c._id && c._id.toString() === (pago.colaboradorId?.toString() || pago.colaboradorId)
+                        );
+                        colaboradorNombre = colaborador?.nombre || 'Colaborador no encontrado';
+                      }                    }
                     
-                    console.log('Debug pago:', {
-                      pagoId: pago._id,
-                      colaboradorId: pago.colaboradorId,
-                      tipoColaboradorId: typeof pago.colaboradorId,
-                      colaboradorNombre: colaboradorNombre
-                    });
+                    // Debug solo si el pago es válido
+                    if (pago && pago._id) {
+                      console.log('Debug pago:', {
+                        pagoId: pago._id,
+                        colaboradorId: pago.colaboradorId,
+                        tipoColaboradorId: typeof pago.colaboradorId,
+                        colaboradorNombre: colaboradorNombre
+                      });
+                    }
                     
                     return (                      <tr key={pago._id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">

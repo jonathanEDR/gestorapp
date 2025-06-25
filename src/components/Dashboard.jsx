@@ -7,6 +7,8 @@ import ColaboradorList from './ColaboradorList';
 import GestionPersonal from './GestionPersonal';
 import Reportes from './Reportes';
 import GastoList from './GastoList';  
+import PagosRealizados from './PagosRealizados';
+import Caja from './Caja';
 import LogoutButton from './LogouButton';
 import Breadcrumbs from './Breadcrumbs';
 import { useUser } from '@clerk/clerk-react';
@@ -34,7 +36,6 @@ function Dashboard() {
   };
 
   const firstName = user ? user.firstName : 'Usuario';
-
   const menuItems = [
     {
       id: 'reportes',
@@ -42,6 +43,15 @@ function Dashboard() {
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      )
+    },
+    {
+      id: 'caja',
+      title: 'Control de Caja',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       )
     },
@@ -215,15 +225,17 @@ function Dashboard() {
             {/* Content Card con Routes */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
               <div className="p-8 min-h-[calc(100vh-16rem)]">                <Routes>
+                  <Route path="caja" element={<Caja />} />
                   <Route path="productos" element={<ProductoList />} />
                   <Route path="ventas" element={<VentaList />} />
                   <Route path="cobros" element={<CobroList />} />
                   <Route path="colaboradores" element={<ColaboradorList />} />
                   <Route path="gestion-personal" element={<GestionPersonal />} />
+                  <Route path="pagos-realizados" element={<PagosRealizados />} />
                   <Route path="reportes" element={<Reportes />} />
                   <Route path="gastos" element={<GastoList />} />
-                  <Route path="/" element={<Reportes />} />
-                  <Route path="" element={<Reportes />} />
+                  <Route path="/" element={<Caja />} />
+                  <Route path="" element={<Caja />} />
                 </Routes>
               </div>
             </div>

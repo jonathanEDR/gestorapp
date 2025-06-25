@@ -61,8 +61,14 @@ const [customDateRange, setCustomDateRange] = useState({
       const token = await getToken();
       const response = await api.get('/gastos', {
         headers: { Authorization: `Bearer ${token}` }
-      });
+      });      // Verificar consistencia de datos
+      const inconsistencias = verificarConsistenciaGastos(response.data);
+      if (inconsistencias.length > 0) {
+        console.warn('🚨 Se detectaron inconsistencias en los gastos. Revisar datos.');
+      }
+      
       setGastos(response.data);
+      console.log('📊 Gastos cargados:', response.data.length);
     } catch (error) {
       console.error('Error al obtener los gastos:', error);
       setError('Error al cargar los gastos. Por favor, intenta nuevamente.');
@@ -268,6 +274,37 @@ const groupGastosByType = (gastos) => {
   }, {});
 };
 
+// Función para verificar consistencia de datos
+const verificarConsistenciaGastos = (gastos) => {
+  const inconsistencias = [];
+  
+  gastos.forEach(gasto => {
+    // Verificar que tipoDeGasto sea válido
+    if (!['Pago Personal', 'Materia Prima', 'Otros'].includes(gasto.tipoDeGasto)) {
+      inconsistencias.push({
+        id: gasto._id,
+        problema: `tipoDeGasto inválido: "${gasto.tipoDeGasto}"`,
+        gasto: gasto
+      });
+    }
+    
+    // Verificar que gasto (categoría) sea válido
+    if (!['Finanzas', 'Producción', 'Ventas', 'Administración'].includes(gasto.gasto)) {
+      inconsistencias.push({
+        id: gasto._id,
+        problema: `Categoría inválida: "${gasto.gasto}"`,
+        gasto: gasto
+      });
+    }
+  });
+  
+  if (inconsistencias.length > 0) {
+    console.warn('🚨 Inconsistencias detectadas en gastos:', inconsistencias);
+  }
+  
+  return inconsistencias;
+};
+
 // Función para calcular total por tipo
 const getTotalByType = (gastos) => {
   return gastos.reduce((total, gasto) => total + gasto.montoTotal, 0);
@@ -466,7 +503,7 @@ const handleSectionChangeWithFilter = (section, category) => {
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
     {/* Tarjeta de Finanzas */}
     <div 
-      onClick={() => handleSectionChange('finanzas', 'Financiero')}
+      onClick={() => handleSectionChange('finanzas', 'Finanzas')}
       className="bg-white shadow-xl rounded-xl overflow-hidden transform hover:scale-105 transition-transform duration-300 cursor-pointer"
     >
       <div className="aspect-square p-6 flex flex-col">
@@ -908,12 +945,11 @@ const handleSectionChangeWithFilter = (section, category) => {
                     onChange={(e) => handleInputChange('gasto', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
                     required
-                  >
-                    <option value="">Seleccione una categoría</option>
+                  >                    <option value="">Seleccione una categoría</option>
+                    <option value="Finanzas">Finanzas</option>
                     <option value="Producción">Producción</option>
                     <option value="Ventas">Ventas</option>
                     <option value="Administración">Administración</option>
-                    <option value="Financiero">Financiero</option>
                   </select>
                 </div>
 
@@ -927,10 +963,9 @@ const handleSectionChangeWithFilter = (section, category) => {
                     onChange={(e) => handleInputChange('tipoDeGasto', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
                     required
-                  >
-                    <option value="">Seleccione un tipo</option>
-                    <option value="Mano de obra">Mano de obra</option>
-                    <option value="Materia prima">Materia prima</option>
+                  >                    <option value="">Seleccione un tipo</option>
+                    <option value="Pago Personal">Pago Personal</option>
+                    <option value="Materia Prima">Materia Prima</option>
                     <option value="Otros">Otros</option>
                   </select>
                 </div>
