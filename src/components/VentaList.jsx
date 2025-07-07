@@ -40,11 +40,21 @@ function VentaList() {
         throw new Error('No autorizado');
       }
 
-      // Cargar todos los datos en paralelo
+      // Cargar todos los datos en paralelo con timeouts
       const [ventasResponse, colaboradoresResponse, productosResponse] = await Promise.all([
-        api.get('/ventas', { headers: { Authorization: `Bearer ${token}` } }),
-        api.get('/ventas/colaboradores', { headers: { Authorization: `Bearer ${token}` } }),
-        api.get('/ventas/productos', { headers: { Authorization: `Bearer ${token}` } })
+        api.get('/ventas', { 
+          headers: { Authorization: `Bearer ${token}` },
+          params: { limit: 50 }, // Limitar ventas iniciales
+          timeout: 8000
+        }),
+        api.get('/ventas/colaboradores', { 
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 5000
+        }),
+        api.get('/ventas/productos', { 
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 5000
+        })
       ]);
 
       // Procesar ventas
@@ -75,19 +85,22 @@ function VentaList() {
       setLoading(false);
     }
   }, [getToken]);
-  // Cargar devoluciones por separado
+  // Cargar devoluciones por separado con límites optimizados
   const loadDevoluciones = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
       const token = await getToken();
-      if (!token) return;      console.log('🔍 DEBUG loadDevoluciones: Iniciando carga de devoluciones...');
+      if (!token) return;
 
-      // CARGAR TODAS LAS DEVOLUCIONES - sin límite de paginación
+      console.log('🔍 DEBUG loadDevoluciones: Iniciando carga de devoluciones...');
+
+      // CARGAR DEVOLUCIONES CON LÍMITE RAZONABLE
       const response = await api.get('/ventas/devoluciones', {
-        params: { page: 1, limit: 1000 }, // Límite alto para obtener todas
-        headers: { Authorization: `Bearer ${token}` }
+        params: { page: 1, limit: 50 }, // Límite más razonable
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 8000 // Timeout de 8 segundos
       });
 
       console.log('🔍 DEBUG loadDevoluciones: Respuesta recibida:', response.data);
@@ -99,7 +112,11 @@ function VentaList() {
       console.log('🔍 DEBUG loadDevoluciones: Estado actualizado con', devolucionesRecibidas.length, 'devoluciones');
     } catch (error) {
       console.error('❌ Error al cargar devoluciones en loadDevoluciones:', error);
-      setError(error.message);
+      if (error.code === 'ECONNABORTED') {
+        setError('Timeout: La consulta está tardando demasiado. Intenta recargar.');
+      } else {
+        setError(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -131,20 +148,21 @@ function VentaList() {
       devoluciones: devoluciones
     });
   }, [devoluciones]);
-  // Función para cargar devoluciones (movida aquí)
+  // Función para cargar devoluciones secundaria con optimizaciones
   const loadDevolucionesSecondary = useCallback(async () => {
     try {
       setLoading(true);
       const token = await getToken();
-        console.log('🔍 DEBUG loadDevolucionesSecondary: Iniciando carga secundaria de devoluciones...');
+      console.log('🔍 DEBUG loadDevolucionesSecondary: Iniciando carga secundaria de devoluciones...');
       
-      // CARGAR TODAS LAS DEVOLUCIONES - sin límite de paginación
+      // CARGAR DEVOLUCIONES CON LÍMITE OPTIMIZADO
       const response = await api.get('/ventas/devoluciones', {
-        params: { page: 1, limit: 1000 }, // Límite alto para obtener todas
+        params: { page: 1, limit: 50 }, // Límite más razonable
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 8000 // Timeout de 8 segundos
       });
 
       console.log('🔍 DEBUG loadDevolucionesSecondary: Respuesta completa:', response.data);
@@ -159,7 +177,6 @@ function VentaList() {
       }
 
       console.log('🔍 DEBUG loadDevolucionesSecondary: Total devoluciones procesadas:', devolucionesProcesadas.length);
-      console.log('🔍 DEBUG loadDevolucionesSecondary: Devoluciones procesadas:', devolucionesProcesadas);
       
       setDevoluciones(devolucionesProcesadas);
       console.log('🔍 DEBUG loadDevolucionesSecondary: Estado actualizado con', devolucionesProcesadas.length, 'devoluciones');
@@ -167,10 +184,14 @@ function VentaList() {
       console.error('❌ Error detallado al cargar devoluciones en loadDevolucionesSecondary:', {
         mensaje: error.message,
         respuesta: error.response?.data,
-        status: error.response?.status,
-        config: error.config
+        status: error.response?.status
       });
-      setError(error.message || 'Error al cargar las devoluciones');
+      
+      if (error.code === 'ECONNABORTED') {
+        setError('Timeout: La consulta está tardando demasiado. Intenta recargar.');
+      } else {
+        setError(error.message || 'Error al cargar las devoluciones');
+      }
     } finally {
       setLoading(false);
     }
