@@ -1,23 +1,25 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import ProductoList from './ProductoList';
-import VentaList from './VentaList';
-import CobroList from './CobroList';
-import ColaboradorList from './ColaboradorList';
-import GestionPersonal from './GestionPersonal';
-import Reportes from './Reportes';
-import GastoList from './GastoList';  
-import PagosRealizados from './PagosRealizados';
-import Caja from './Caja';
 import LogoutButton from './LogouButton';
 import Breadcrumbs from './Breadcrumbs';
 import { useUser } from '@clerk/clerk-react';
+import Chatbot from './Chatbot';
+const ProductoList = lazy(() => import('./ProductoList'));
+const VentaList = lazy(() => import('./VentaList'));
+const CobroList = lazy(() => import('./CobroList'));
+const ColaboradorList = lazy(() => import('./ColaboradorList'));
+const GestionPersonal = lazy(() => import('./GestionPersonal'));
+const Reportes = lazy(() => import('./Reportes'));
+const GastoList = lazy(() => import('./GastoList'));
+const PagosRealizados = lazy(() => import('./PagosRealizados'));
+const Caja = lazy(() => import('./Caja'));
 
 function Dashboard() {
   const { user } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarVisible, setSidebarVisible] = useState(true);
+  const [showChatbot, setShowChatbot] = useState(false);
 
   // Debug logs
   console.log('Dashboard renderizado');
@@ -27,6 +29,10 @@ function Dashboard() {
   // Función para alternar el sidebar
   const toggleSidebar = () => {
     setSidebarVisible(!isSidebarVisible);
+  };
+  // Función para alternar el chatbot
+  const toggleChatbot = () => {
+    setShowChatbot((prev) => !prev);
   };
   // Obtener la sección activa desde la URL (sin /dashboard)
   const activeSection = location.pathname.split('/')[1] || 'reportes';
@@ -224,24 +230,41 @@ function Dashboard() {
 
             {/* Content Card con Routes */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-              <div className="p-8 min-h-[calc(100vh-16rem)]">                <Routes>
-                  <Route path="caja" element={<Caja />} />
-                  <Route path="productos" element={<ProductoList />} />
-                  <Route path="ventas" element={<VentaList />} />
-                  <Route path="cobros" element={<CobroList />} />
-                  <Route path="colaboradores" element={<ColaboradorList />} />
-                  <Route path="gestion-personal" element={<GestionPersonal />} />
-                  <Route path="pagos-realizados" element={<PagosRealizados />} />
-                  <Route path="reportes" element={<Reportes />} />
-                  <Route path="gastos" element={<GastoList />} />
-                  <Route path="/" element={<Caja />} />
-                  <Route path="" element={<Caja />} />
-                </Routes>
+              <div className="p-8 min-h-[calc(100vh-16rem)]">
+                <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div><span className="ml-3 text-gray-600">Cargando...</span></div>}>
+                  <Routes>
+                    <Route path="caja" element={<Caja />} />
+                    <Route path="productos" element={<ProductoList />} />
+                    <Route path="ventas" element={<VentaList />} />
+                    <Route path="cobros" element={<CobroList />} />
+                    <Route path="colaboradores" element={<ColaboradorList />} />
+                    <Route path="gestion-personal" element={<GestionPersonal />} />
+                    <Route path="pagos-realizados" element={<PagosRealizados />} />
+                    <Route path="reportes" element={<Reportes />} />
+                    <Route path="gastos" element={<GastoList />} />
+                    <Route path="/" element={<Caja />} />
+                    <Route path="" element={<Caja />} />
+                  </Routes>
+                </Suspense>
               </div>
             </div>
           </div>
         </main>
       </div>
+            {/* Chatbot Window */}
+      {showChatbot && (
+        <div className="fixed bottom-24 right-4 w-80 h-96 bg-white rounded-lg shadow-xl z-40">
+          <Chatbot />
+        </div>
+      )}
+
+      {/* Chatbot Toggle Button */}
+      <button 
+        onClick={toggleChatbot}
+        className="fixed bottom-4 right-4 w-16 h-16 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 transition-colors z-50"
+      >
+        <span className="text-2xl">💬</span>
+      </button>
     </div>
   );
 }

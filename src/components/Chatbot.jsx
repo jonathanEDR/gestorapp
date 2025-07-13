@@ -18,6 +18,8 @@ const Chatbot = () => {
   const recognitionRef = useRef(null);
   const retryTimeoutRef = useRef(null);
   const { getToken } = useAuth(); // Get both token and auth status
+  const chatboxRef = useRef(null); // Para auto-scroll
+  const inputRef = useRef(null); // Para focus automático
 
   // Verificar si se tiene acceso al micrófono
   const checkMicrophoneAccess = async () => {
@@ -135,6 +137,11 @@ const Chatbot = () => {
         message: '',
       }));
 
+      // Hacer focus al input después de enviar
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+
       if (shouldRead) {
         speakText(reply);
       }
@@ -153,6 +160,13 @@ const Chatbot = () => {
       handleSendMessage();
     }
   };
+
+  // Auto-scroll al último mensaje
+  useEffect(() => {
+    if (chatboxRef.current) {
+      chatboxRef.current.scrollTop = chatboxRef.current.scrollHeight;
+    }
+  }, [chatData.responses, isLoading]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -177,9 +191,13 @@ const Chatbot = () => {
         </h2>
 
         {/* Chatbox con indicador de carga y errores */}
-        <div className="chatbox flex-1 overflow-y-auto mb-4 p-2 border border-gray-200 rounded-lg">
+        <div
+          className="chatbox flex-1 overflow-y-auto mb-4 p-2 border border-gray-200 rounded-lg"
+          ref={chatboxRef}
+          aria-live="polite"
+        >
           {isLoading && (
-            <div className="loading-indicator text-center py-2">
+            <div className="loading-indicator text-center py-2 animate-pulse">
               <span className="text-gray-500">Procesando mensaje...</span>
             </div>
           )}
@@ -192,7 +210,11 @@ const Chatbot = () => {
             <p className="text-gray-500 text-center">No hay mensajes aún.</p>
           ) : (
             chatData.responses.map((res, index) => (
-              <div key={index} className="message-container mb-2">
+              <div
+                key={index}
+                className="message-container mb-2 transition-all duration-300 ease-in-out animate-fadein"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
                 <p className="user-message text-sm text-blue-600">
                   <strong>Usuario:</strong> {res.message}
                 </p>
@@ -208,21 +230,27 @@ const Chatbot = () => {
         <div className="chatbot-input">
           <div className="input-container flex items-center space-x-2">
             <input
+              ref={inputRef}
               type="text"
               placeholder="Escribe tu mensaje..."
               value={chatData.message}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              disabled={isLoading}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+              readOnly={isLoading}
+              aria-label="Escribe tu mensaje"
+              className={`w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 ${isLoading ? 'bg-gray-100 text-gray-400' : ''}`}
             />
             <button
               onClick={toggleListening}
               disabled={isLoading}
-              className={`microphone-btn p-2 ${isLoading ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-400'} text-white rounded-full flex items-center justify-center`}
+              aria-label={isListening ? 'Detener reconocimiento de voz' : 'Iniciar reconocimiento de voz'}
+              className={`microphone-btn p-2 ${isListening ? 'bg-green-500 animate-pulse' : isLoading ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-400'} text-white rounded-full flex items-center justify-center`}
             >
               <i className={`fa ${isListening ? 'fa-microphone-slash' : 'fa-microphone'} text-xl`}></i>
             </button>
+          </div>
+          <div className="text-xs text-gray-400 mt-1">
+            Puedes seguir escribiendo y presiona <span className="font-semibold">Enter</span> para enviar.
           </div>
         </div>
 
@@ -231,12 +259,14 @@ const Chatbot = () => {
           <button
             onClick={handleSendMessage}
             disabled={isLoading || !chatData.message.trim()}
+            aria-label="Enviar mensaje"
             className={`send-button p-2 ${isLoading || !chatData.message.trim() ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-400'} text-white rounded-full flex items-center justify-center`}
           >
             <i className="fas fa-paper-plane text-xl"></i>
           </button>
           <button
             onClick={() => setShouldRead(prev => !prev)}
+            aria-label={shouldRead ? 'Desactivar lectura en voz alta' : 'Activar lectura en voz alta'}
             className="read-toggle-btn p-2 bg-gray-500 text-white rounded-full hover:bg-gray-400 flex items-center justify-center"
           >
             <i className={`fa ${shouldRead ? 'fa-volume-up' : 'fa-volume-off'} text-xl`}></i>
